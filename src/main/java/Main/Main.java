@@ -34,7 +34,6 @@ public class Main extends Application {
             try{
                 CMD.runCommands(CMD.listCommands[0]);
 
-
                 loginMenuObj.menu();
 
             }catch (IOException e){

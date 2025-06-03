@@ -1,6 +1,10 @@
 package Testing.datatest;
 
 import Features.Database;
+import Testing.ViewBorrowedBook;
+import books.Book;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import data.Admin;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -23,10 +27,64 @@ import javafx.stage.Stage;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class SimulasiData extends Application {
+    public static final String user_database = "jdbc:sqlite:src/main/java/.database/User_database";
+    public static final String book_database = "jdbc:sqlite:src/main/java/.database/Book";
+
+    private static final HikariDataSource userDataSource;
+    private static final HikariDataSource bookDataSource;
+    private static final Map<String, books.Book> bookCache = new HashMap<>(); // Cache for book_data
+
+    // Initialize HikariCP connection pools
+    static {
+        // User database pool
+        HikariConfig userConfig = new HikariConfig();
+        userConfig.setJdbcUrl(user_database);
+        userConfig.setMaximumPoolSize(5); // SQLite supports limited connections
+        userConfig.setConnectionTimeout(2000); // 2 seconds timeout
+        userConfig.addDataSourceProperty("cachePrepStmts", "true");
+        userConfig.addDataSourceProperty("prepStmtCacheSize", "100");
+        userConfig.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+        userDataSource = new HikariDataSource(userConfig);
+
+        // Book database pool
+        HikariConfig bookConfig = new HikariConfig();
+        bookConfig.setJdbcUrl(book_database);
+        bookConfig.setMaximumPoolSize(5);
+        bookConfig.setConnectionTimeout(2000);
+        bookConfig.addDataSourceProperty("cachePrepStmts", "true");
+        bookConfig.addDataSourceProperty("prepStmtCacheSize", "100");
+        bookConfig.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+        bookDataSource = new HikariDataSource(bookConfig);
+
+        // Initialize database with PRAGMA settings and indexes
+        try (Connection userConn = userDataSource.getConnection();
+             Connection bookConn = bookDataSource.getConnection();
+             Statement userStmt = userConn.createStatement();
+             Statement bookStmt = bookConn.createStatement()) {
+            // SQLite performance tuning
+            userStmt.execute("PRAGMA synchronous = NORMAL"); // Balance speed and safety
+            userStmt.execute("PRAGMA journal_mode = WAL"); // Write-Ahead Logging for concurrency
+            bookStmt.execute("PRAGMA synchronous = NORMAL");
+            bookStmt.execute("PRAGMA journal_mode = WAL");
+
+            // Create indexes
+            userStmt.execute("CREATE INDEX IF NOT EXISTS idx_mahasiswa_nim ON mahasiswa_credentials(nim)");
+            bookStmt.execute("CREATE INDEX IF NOT EXISTS idx_borrowed_nim_expired ON borrowed_books(nim, expired_borrowedBook)");
+            bookStmt.execute("CREATE INDEX IF NOT EXISTS idx_book_data_id ON book_data(id)");
+        } catch (SQLException e) {
+            System.out.println("Error initializing database: " + e.getMessage());
+        }
+    }
+
+    private static Connection connect(String url) throws SQLException {
+        return url.equals(user_database) ? userDataSource.getConnection() : bookDataSource.getConnection();
+    }
 
     public static class Book {
         private   SimpleStringProperty nim;
@@ -106,11 +164,29 @@ public class SimulasiData extends Application {
 
 
     }
+    public static class AddAdmin {
+        private   SimpleStringProperty username;
+        private   SimpleStringProperty password;
 
-    private   ObservableList<Book> borrowedBook = FXCollections.observableArrayList();
 
-    private final List<AddUser> addUser = new ArrayList<>();
-    private final List<Book> addbook = new ArrayList<>();
+
+        public AddAdmin(String username, String password) {
+            this.username = new SimpleStringProperty(username);
+            this.password = new SimpleStringProperty(password);
+
+        }
+
+        public  String getUsername() { return username.get(); }
+        public String getPassword() { return password.get(); }
+
+
+    }
+
+    public ObservableList<Book> borrowedBook = FXCollections.observableArrayList();
+
+    public final List<AddUser> addUser = new ArrayList<>();
+    public final List<AddAdmin> addAdmin = new ArrayList<>();
+    public final List<Book> addbook = new ArrayList<>();
 
 
     //=====================================================================================================
@@ -136,6 +212,7 @@ public class SimulasiData extends Application {
         // TableView
         TableView<Book> tableView = new TableView<>();
         tableView.setStyle("-fx-font-size: 13px;");
+        tableView.setItems(borrowedBook);
         tableView.setItems(borrowedBook);
 
         TableColumn<Book, String> nimCol = new TableColumn<>("NIM");
@@ -197,16 +274,14 @@ public class SimulasiData extends Application {
         layout.setAlignment(Pos.TOP_CENTER);
 
         // Scene setup
-        Scene scene = new Scene(layout, 950, 600);
+        Scene scene = new Scene(layout, 600, 300);
         primaryStage.setScene(scene);
         primaryStage.setTitle("Data Peminjaman Buku");
-        primaryStage.setFullScreen(true);
-        primaryStage.setFullScreenExitHint("");
+
         primaryStage.show();
 
         loadBooksFromDatabase();
-
-        simulateDataAddition(300, Duration.seconds(5),1100);
+        simulateDataAddition(300, Duration.seconds(1),108000);
         System.out.print("DEBUG - Ukuran ArrayList: " + addUser.size());
     }
 
@@ -214,7 +289,7 @@ public class SimulasiData extends Application {
         String url = "jdbc:sqlite:src/main/java/.database/Book";
         String query = "SELECT * FROM borrowed_books";
 
-        try (Connection conn = DriverManager.getConnection(url);
+        try (Connection conn = bookDataSource.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
 
@@ -238,10 +313,10 @@ public class SimulasiData extends Application {
     }
 
     private void saveBooksToDatabase() {
-        String url = "jdbc:sqlite:src/main/java/.database/Book";
+
         String insertSQL = "INSERT INTO borrowed_books (nim, book_id, title, author, category, duration, expired_borrowedBook) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-        try (Connection conn = DriverManager.getConnection(url);
+        try (Connection conn = bookDataSource.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
 
             for (Book book : borrowedBook) {
@@ -271,27 +346,28 @@ public class SimulasiData extends Application {
     private void simulateDataAddition(int jumlahData, Duration interval, int maxTotal) {
         Timeline timeline = new Timeline(new KeyFrame(interval, i -> {
 
+
             if (totalAdded >= maxTotal) {
                 System.out.println("Simulasi selesai: total data mencapai " + maxTotal);
+
                 Platform.runLater(() -> {
                     Alert alert = new Alert(Alert.AlertType.INFORMATION, "Simulasi selesai: total data mencapai " + maxTotal);
                     alert.show(); // NON-blocking version
                 });
 
-
-                // Simpan semua data ke database
-                //saveAllBooksToDatabase();
                 //saveAllUsersToDatabase();
-                saveAllBorrowedBooksToDatabase();
+                //saveAllBooksToDatabase();
+                //saveAllBorrowedBooksToDatabase();
+                //saveAllAdminToDatabase();
 
                 System.out.println("✅ Semua data simulasi berhasil disimpan ke database.");
                 ((Timeline) i.getSource()).stop();
                 return;
             }
-
-            //addSimulatedBooks(jumlahData, maxTotal);
             //addSimulatedUsers(jumlahData, maxTotal);
+            //addSimulatedBooks(jumlahData, maxTotal);
             addSimulatedBorrowedBooks(jumlahData, maxTotal);
+            //addSimulatedAdmin(jumlahData, maxTotal);
 
             System.out.println("✅ Tambahan data berjalan... Total: " + totalAdded);
 
@@ -300,51 +376,28 @@ public class SimulasiData extends Application {
         timeline.play();
     }
 
-    private void addSimulatedUsers(int jumlahData, int maxTotal) {
-        int startIndex = addUser.size() + 1;
-        for (int a = 0; a < jumlahData && totalAdded < maxTotal; a++) {
-            String nim = String.format("%015d", startIndex + a);
-            String pic = "B" + (startIndex + a);
-            String name = "NF" + (startIndex + a);
-            String faculty = "Teknik";
-            String major = "Informatika";
-            String email = "nframzi051@gmail.com";
-
-            addUser.add(new AddUser(nim, pic, name, faculty, major, email));
-            totalAdded++;
-            System.out.println("👤 Tambah data pengguna ke-" + totalAdded);
-        }
-    }
-
-    private void addSimulatedBooks(int jumlahData, int maxTotal) {
-        int startIndex = addbook.size() + 1;
-        for (int a = 0; a < jumlahData && totalAdded < maxTotal; a++) {
-            String bookId = "B" + String.format("%04d", startIndex + a);
-            String title = "Buku Simulasi " + (startIndex + a);
-            String author = "Penulis Simulasi " + (startIndex + a);
-            String category = "Kategori Simulasi";
-            int stock = 5;
-
-            addbook.add(new Book(bookId, title, author, category, stock));
-            totalAdded++;
-            System.out.println("📚 Tambah data buku ke-" + totalAdded);
-        }
-    }
 
     private void addSimulatedBorrowedBooks(int jumlahData, int maxTotal) {
         int startIndex = borrowedBook.size() + 1;
-        for (int i = 0; i < jumlahData && totalAdded < maxTotal; i++) {
-            String nim = String.format("%015d", startIndex + i);
-            String bookId = "B" + String.format("%04d", startIndex + i);
-            String title = "Buku Simulasi " + (startIndex + i);
-            String author = "Penulis Simulasi " + (startIndex + i);
-            String category = "Kategori Simulasi";
-            int duration = 7;
-            String expired = "2025-12-31";
+        try {
 
-            borrowedBook.add(new Book(nim, bookId, title, author, category, duration, expired));
-            System.out.println("📖 Tambah data pinjaman ke-" + totalAdded);
-            totalAdded++;
+            for (int i = 0; i < jumlahData && totalAdded < maxTotal; i++) {
+                String nim = String.format("%015d", startIndex + i);
+                String bookId = "B" + String.format("%07d", startIndex + i);
+                String title = "Buku Simulasi " + (startIndex + i);
+                String author = "Penulis Simulasi " + (startIndex + i);
+                String category = "Kategori Simulasi";
+                int duration = 7;
+                String expired = "2025-12-31";
+                borrowedBook.add(new Book(nim, bookId, title, author, category, duration, expired));
+
+                System.out.println("📖 Tambah data pinjaman ke-" + totalAdded);
+                totalAdded++;
+
+            }
+            saveAllBorrowedBooksToDatabase();
+        }catch (ClassCastException e){
+            System.out.println(" ");
         }
     }
 
@@ -358,8 +411,20 @@ public class SimulasiData extends Application {
                     add.getMajor(),
                     add.getEmail()
             );
+
         }
         System.out.println("✅ Semua data pengguna berhasil disimpan ke database.");
+    }
+
+    private void saveAllAdminToDatabase() {
+        for (AddAdmin add : addAdmin) {
+            Database.admin_addAdmin(
+                    add.getUsername(),
+                    add.getPassword()
+            );
+
+        }
+        System.out.println("✅ Semua data Admin berhasil disimpan ke database.");
     }
 
     private void saveAllBooksToDatabase() {
@@ -371,6 +436,7 @@ public class SimulasiData extends Application {
                     book.getCategory(),
                     book.getStock()
             );
+
         }
         System.out.println("📚 Semua data buku berhasil disimpan ke database.");
     }
@@ -386,14 +452,60 @@ public class SimulasiData extends Application {
                     book.getDuration(),
                     book.getExpired()
             );
+
         }
         System.out.println("📖 Semua data pinjaman berhasil disimpan ke database.");
     }
-    public static void admin_addBorrowedBook(String nim, String bookId, String title, String author, String category, int duration, String expired) {
-        String url = "jdbc:sqlite:src/main/java/.database/Book";
-        String sql = "INSERT INTO borrowed_books (nim, book_id, title, author, category, duration, expired_borrowedBook) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-        try (Connection conn = DriverManager.getConnection(url);
+    private void addSimulatedUsers(int jumlahData, int maxTotal) {
+        int startIndex = addUser.size() + 1;
+        for (int a = 0; a < jumlahData && totalAdded < maxTotal; a++) {
+            String nim = String.format("202310370311"+"%03d", startIndex + a);
+            String pic = "B" + (startIndex + a);
+            String name = "NF" + (startIndex + a);
+            String faculty = "Teknik";
+            String major = "Informatika";
+            String email = "nframzi051@gmail.com";
+
+            addUser.add(new AddUser(nim, pic, name, faculty, major, email));
+            totalAdded++;
+            System.out.println("👤 Tambah data pengguna ke-" + totalAdded);
+        }
+
+    }
+    private void addSimulatedAdmin(int jumlahData, int maxTotal) {
+        int startIndex = addUser.size() + 1;
+        for (int a = 0; a < jumlahData && totalAdded < maxTotal; a++) {
+            String username = String.format("admin"+"%03d", startIndex + a);
+            String password = "admin" + (startIndex + a);
+
+            addAdmin.add(new AddAdmin(username, password));
+            totalAdded++;
+            System.out.println("👤 Tambah data admin ke-" + totalAdded);
+        }
+
+    }
+
+    private void addSimulatedBooks(int jumlahData, int maxTotal) {
+        int startIndex = addbook.size() + 1;
+        for (int a = 0; a < jumlahData && totalAdded < maxTotal; a++) {
+            String bookId = "B" + String.format("%03d", startIndex + a);
+            String title = "Buku Simulasi " + (startIndex + a);
+            String author = "Penulis Simulasi " + (startIndex + a);
+            String category = "Kategori Simulasi";
+            int stock = 5;
+
+            addbook.add(new Book(bookId, title, author, category, stock));
+            totalAdded++;
+            System.out.println("📚 Tambah data buku ke-" + totalAdded);
+            break;
+        }
+    }
+
+    public static void admin_addBorrowedBook(String nim, String bookId, String title, String author, String category, int duration, String expired) {
+        String sql = "INSERT OR REPLACE INTO borrowed_books (nim, book_id, title, author, category, duration, expired_borrowedBook) VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = bookDataSource.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, nim);
@@ -408,8 +520,12 @@ public class SimulasiData extends Application {
             System.out.println("✅ Data pinjaman buku berhasil ditambahkan: " + title);
 
         } catch (SQLException e) {
-            System.out.println("❌ Gagal menambahkan data pinjaman buku ke database: " + e.getMessage());
+            System.out.println(" ");
         }
+        catch (ClassCastException e) {
+            System.out.println("done class cast");
+        }
+
     }
 
     public static void main(String[] args) {

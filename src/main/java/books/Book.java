@@ -72,6 +72,7 @@ public class Book {
     }
 
 
+
     //=================================== SETTER METHOD ====================================
     public void setNim(String nim){
         this.nim = nim;

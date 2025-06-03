@@ -3,19 +3,32 @@ package data;
 import Features.Database;
 import Features.DoubleClick_table;
 
+import Testing.Chatbot;
+import Testing.tampilan.choiceBooks;
 import books.*;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import Features.SendEmail;
 
 import java.sql.SQLException;
+import java.util.Stack;
 
 
 public class User {
@@ -27,18 +40,31 @@ public class User {
         Book bookObj = new Book();
         Student studentObj = new Student();
 
+        //Background
+        Image backgroundImage = new Image("file:src/main/java/image/Peminjaman_buku.png");
+        ImageView backgroundImageView = new ImageView(backgroundImage);
+        backgroundImageView.setFitHeight(768);
+        backgroundImageView.setFitWidth(1366);
+        backgroundImageView.setMouseTransparent(true);
 
-        //Label
-        Label headerTitle = new Label("PINJAM BUKU");
-        headerTitle.setTranslateX(131);
-        headerTitle.setStyle("-fx-text-fill: #A91D3A;");
-        headerTitle.setFont(Font.font("Tahoma", FontWeight.BOLD, 20));
+        // Search Field
+        TextField searchField = new TextField();
+        searchField.setPromptText("🔍 Cari Judul / Penulis...");
+        searchField.setStyle("-fx-background-radius: 8; -fx-padding: 8px;");
+        Label searchLabel = new Label(" ");
+        HBox searchBox = new HBox(10, searchLabel, searchField);
+        searchBox.setAlignment(Pos.CENTER_RIGHT);
+        searchBox.setPadding(new Insets(20, 20, 0, 0));
+
 
         Label bookIdLabel = new Label("Input ID buku yang ingin dipinjam:");
+        bookIdLabel.setPadding(new Insets(10, 0, 0, 0));
 
         Label durationLabel = new Label("Berapa hari ingin meminjam buku?");
 
+
         //Label notification
+
         Label errorMaxBorrowedLabel = new Label("Batas pinjam 10 buku");
         errorMaxBorrowedLabel.setVisible(false);
         errorMaxBorrowedLabel.setTranslateX(120);
@@ -93,6 +119,19 @@ public class User {
         bookStockEmptyLabel.setStyle("-fx-text-fill: #FF1E1E;");
         bookStockEmptyLabel.setFont(Font.font("Calibri Body", FontWeight.BOLD, 15));
 
+        Group notificationGroup = new Group();
+        notificationGroup.getChildren().addAll(
+                errorborrowBookLabel,
+                errorDurationField,
+                errorDuplicateLabel,
+                borrowBookSuccesLabel,
+                idNotFoundLabel,
+                sendEmailError,
+                errorMaxBorrowedLabel,
+                bookStockEmptyLabel,
+                waitLabel
+        );
+
         //Field
         TextField bookIdField = new TextField();
 
@@ -100,14 +139,24 @@ public class User {
         durationField.setPromptText("Maks. 7 hari");
 
         //Button
+        // Tombol untuk membuka chatbot
         Button submitButton = new Button("Submit");
-        submitButton.setTranslateX(348);
+        submitButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
+        //submitButton.setTranslateX(348);
 
         Button returnButton = new Button("Kembali");
+        returnButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
 
-       /*
         //Table
         TableView<Book> tableView = new TableView<>();
+        tableView.setStyle("-fx-font-size: 13px;");
+        tableView.setMinWidth(1200);
+        tableView.setMaxWidth(1200);
+        tableView.setMinHeight(400);
+        tableView.setTranslateX(0);
+        tableView.setTranslateY(12);
+        tableView.getStylesheets().add("file:src/main/java/css/table.css");
+
 
         TableColumn<Book, String> idColumn       = new TableColumn<>("ID Buku");
         TableColumn<Book, String> titleColumn    = new TableColumn<>("Nama Buku");
@@ -121,6 +170,13 @@ public class User {
         tableView.getColumns().add(categoryColumn);
         tableView.getColumns().add(stockColumn);
 
+        idColumn.setPrefWidth(210);
+        titleColumn.setPrefWidth(380);
+        authorColumn.setPrefWidth(230);
+        categoryColumn.setPrefWidth(210);
+        stockColumn.setPrefWidth(150);
+
+
         idColumn.setCellValueFactory(new PropertyValueFactory<>("bookId"));
         titleColumn.setCellValueFactory(new PropertyValueFactory<>("title"));
         authorColumn.setCellValueFactory(new PropertyValueFactory<>("author"));
@@ -132,11 +188,30 @@ public class User {
             tableView.getItems().add(i);
 
         }
-        */
 
+        // Search Logic
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            String filter = newVal.toLowerCase();
+            ObservableList<Book> filteredList = FXCollections.observableArrayList();
 
+            if (filter.isEmpty()) {
+                filteredList.addAll(Book.arr_bookList);
+            } else {
+                for (Book book : Book.arr_bookList) {
+                    if (book.getTitle().toLowerCase().contains(filter) || book.getAuthor().toLowerCase().contains(filter)) {
+                        filteredList.add(book);
+                    }
+                }
+            }
+            tableView.setItems(filteredList);
+        });
+
+        /*
         // Table
         TableView<Book> tableView = new TableView<>();
+        tableView.setPrefWidth(600);    // Lebar preferensi
+        tableView.setMinWidth(400);     // Lebar minimum
+        tableView.setMaxWidth(800);     // Lebar maksimum
 
         TableColumn<Book, String> idColumn       = new TableColumn<>("ID Buku");
         TableColumn<Book, String> titleColumn    = new TableColumn<>("Nama Buku");
@@ -156,15 +231,42 @@ public class User {
 
         // Gunakan ObservableList langsung tanpa for-loop
         tableView.setItems(Book.arr_bookList);
-
+        */
 
         System.out.println("Total Buku di List: " + Book.arr_bookList.size());
+
+        HBox  btn = new HBox(683,returnButton, submitButton);
+        btn.setAlignment(Pos.CENTER);
+
+        /*
+        //Chatbot
+        Button openChatbotButton = new Button("💬 Ask?");
+        openChatbotButton.setStyle(
+                "-fx-font-size: 16px;" +
+                        "-fx-padding: 8 12;" +
+                        "-fx-background-color: linear-gradient(to right, #ffffff, #ffffff);" +
+                        "-fx-text-fill: black;" +
+                        "-fx-background-radius: 30;" +
+                        "-fx-cursor: hand;"
+
+        );
+        VBox chatBot = new VBox(20, openChatbotButton);
+        chatBot.setAlignment(Pos.TOP_RIGHT);
+        chatBot.setTranslateX(-230);
+        chatBot.setTranslateY(18);
+        */
+
+        HBox notificationBox = new HBox(683,notificationGroup);
+        notificationBox.setAlignment(Pos.CENTER);
 
         //Grid layout
         GridPane grid = new GridPane();
         grid.setAlignment(Pos.CENTER);
 
-        grid.add(headerTitle,0,0);
+        VBox searchBoxContainer = new VBox(10, searchBox);
+        searchBoxContainer.setTranslateX(80);
+        searchBoxContainer.setTranslateY(-40);
+        grid.add(searchBoxContainer,0,0);
         grid.add(tableView,0,1);
 
         grid.add(bookIdLabel,  0, 2);
@@ -174,25 +276,17 @@ public class User {
 
         grid.add(durationField, 0,5);
 
-        grid.add(submitButton,0,6);
-        grid.add(returnButton,0,6);
+        grid.add(notificationBox,0,6);
+        grid.add(btn,0,6);
 
-        grid.add(errorDurationField,0,6);
-        grid.add(errorDuplicateLabel,0,6);
-        grid.add(errorborrowBookLabel,0,6);
-        grid.add(borrowBookSuccesLabel,0,6);
-        grid.add(bookStockEmptyLabel, 0,6);
-        grid.add(idNotFoundLabel,0,6);
-        grid.add(sendEmailError,0,6);
-        grid.add(errorMaxBorrowedLabel,0,6);
-        grid.add(waitLabel,0,6);
+
 
         grid.setHgap(5);
         grid.setVgap(10);
 
-
+        StackPane stackPane = new StackPane(backgroundImageView, grid);
         //Scene
-        Scene scene = new Scene(grid);
+        Scene scene = new Scene(stackPane);
 
         //Stage
         Stage choiceBooksStage = new Stage();
@@ -211,6 +305,19 @@ public class User {
 
 
         //Action button
+        /*
+        openChatbotButton.setOnAction(e -> {
+            try {
+                Chatbot chatbotApp = new Chatbot();
+                choiceBooksStage.setFullScreen(false);
+                chatbotApp.start(new Stage());
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+
+        });
+*/
         submitButton.setOnAction(event -> {
 
             errorDurationField.setVisible(false);
@@ -278,25 +385,50 @@ public class User {
                                 + sendEmail.dateinfo_now();
 
                         waitLabel.setVisible(true);
+                        borrowBookSuccesLabel.setVisible(false);
+                        sendEmailError.setVisible(false);
 
-                        Platform.runLater(() -> {
-                            try {
+                        // Jalankan task pengiriman email
+                        Task<Void> sendEmailTask = new Task<>() {
+                            @Override
+                            protected Void call() throws Exception {
+                                System.out.println("Mengirim email ke: " + recipientEmail);
                                 sendEmail.sendEmail(recipientEmail, subject, body);
-                                Book.arr_borrowedBook.add(new Book(nim, bookIdField.getText(), i.getTitle(), i.getAuthor(), i.getCategory(), i.getDuration()));
-
-                                tableView.refresh();
-
-                                borrowBookSuccesLabel.setVisible(true);
-                                waitLabel.setVisible(false);
-                            } catch (Exception e) {
-                                int returnStock = i.getStock();
-                                returnStock++;
-                                i.setStock(returnStock);
-
-                                sendEmailError.setVisible(true);
-                                waitLabel.setVisible(false);
+                                return null;
                             }
+                        };
+
+                        sendEmailTask.setOnSucceeded(ev -> {
+                            System.out.println("Email berhasil dikirim.");
+
+                            Book.arr_borrowedBook.add(new Book(
+                                    nim,
+                                    bookIdField.getText(),
+                                    i.getTitle(),
+                                    i.getAuthor(),
+                                    i.getCategory(),
+                                    i.getDuration()
+                            ));
+                            tableView.refresh();
+
+                            borrowBookSuccesLabel.setVisible(true);
+                            waitLabel.setVisible(false);
                         });
+
+                        sendEmailTask.setOnFailed(ev -> {
+                            System.out.println("Gagal mengirim email: " + sendEmailTask.getException().getMessage());
+
+                            int returnStock = i.getStock();
+                            returnStock++;
+                            i.setStock(returnStock);
+
+                            sendEmailError.setVisible(true);
+                            waitLabel.setVisible(false);
+                        });
+
+                        Thread emailThread = new Thread(sendEmailTask);
+                        emailThread.setDaemon(true);
+                        emailThread.start();
 
                     } catch (SQLException e) {
                         System.out.println("Terjadi kesalahan saat mencari email untuk NIM " + nim + ": " + e.getMessage());
@@ -325,6 +457,12 @@ public class User {
         Book  historyBookObj = new HistoryBook();
 
 
+        //Background
+        Image backgroundImage = new Image("file:src/main/java/image/inputBook.png");
+        ImageView backgroundImageView = new ImageView(backgroundImage);
+        backgroundImageView.setFitHeight(768);
+        backgroundImageView.setFitWidth(1366);
+        backgroundImageView.setMouseTransparent(true);
 
         //Label
         Label sceneTitle = new Label("Tambah Buku");
@@ -339,8 +477,13 @@ public class User {
 
         //Button
         Button historyBookButton  = new Button("History Book");
+        historyBookButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
+
         Button storyBookButton    = new Button("Story Book");
+        storyBookButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
+
         Button textBookButton     = new Button("Text Book");
+        textBookButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
 
         //Grid layout
         GridPane grid = new GridPane();
@@ -352,10 +495,12 @@ public class User {
         grid.add(storyBookButton, 2, 1 );
         grid.add(textBookButton, 2, 2 );
 
+
         grid.setVgap(10);
         grid.setHgap(5);
 
-        Scene scene = new Scene(grid);
+        StackPane stackPane = new StackPane(backgroundImageView, grid);
+        Scene scene = new Scene(stackPane);
         Stage inputBookStage = new Stage();
 
         inputBookStage.setTitle("UMM Library - Input Book");
@@ -412,6 +557,10 @@ public class User {
         errorMessageLabel.setVisible(false);
         errorMessageLabel.setStyle("-fx-text-fill: #FF1E1E;");
 
+        // Image
+        Image backgroundImage = new Image("file:src/main/java/image/add_student.png");
+        ImageView backgroundImageView = new ImageView(backgroundImage);
+
 
         //Field
         TextField bookIdField    = new TextField(adminObj.generateId());
@@ -424,30 +573,41 @@ public class User {
         Button submitButton = new Button("Submit");
 
         Button returnButton = new Button("Kembali");
-        returnButton.setTranslateX(-22);
-
-        //Grid layout
-        GridPane gridAddBook = new GridPane();
-        gridAddBook.setAlignment(Pos.CENTER);
-
-        gridAddBook.add(sceneTitleLabel, 1,0);
-        gridAddBook.add(bookIdLabel, 0,1);
-        gridAddBook.add(bookTitleLabel,0,2);
-        gridAddBook.add(authorLabel, 0,3);
-        gridAddBook.add(stockLabel, 0,4);
-        gridAddBook.add(errorMessageLabel, 0, 5);
-
-        gridAddBook.add(bookIdField,2,1);
-        gridAddBook.add(bookTitleField, 2,2);
-        gridAddBook.add(authorField, 2,3);
-        gridAddBook.add(stockField,2,4);
-
-        gridAddBook.add(submitButton,3,5);
-        gridAddBook.add(returnButton, 2,5);
 
 
-        Scene addbookScene = new Scene(gridAddBook);
-        addbookStage.setScene(addbookScene);
+        // Grid Layout
+        GridPane grid = new GridPane();
+        grid.setAlignment(Pos.CENTER_RIGHT);
+        grid.add(sceneTitleLabel, 0, 0);
+
+        grid.add(bookIdLabel, 0, 1);
+        grid.add(bookIdField, 0, 2);
+
+        grid.add(bookTitleLabel, 0, 3);
+        grid.add(bookTitleField, 0, 4);
+
+        grid.add(authorLabel, 0, 5);
+        grid.add(authorField, 0, 6);
+
+        grid.add(stockLabel, 0, 7);
+        grid.add(stockField, 0, 8);
+
+        grid.add(returnButton, 0, 9);
+        grid.add(submitButton, 1, 9);
+
+        grid.add(errorMessageLabel, 0, 10);
+
+
+
+        grid.setVgap(10);
+        grid.setHgap(5);
+
+        // Window Settings
+        StackPane stackPane = new StackPane(backgroundImageView, grid);
+
+        Scene addBookScene = new Scene(stackPane);
+
+        addbookStage.setScene(addBookScene);
         addbookStage.setFullScreen(true);
         addbookStage.setFullScreenExitHint("");
         addbookStage.show();
@@ -474,7 +634,21 @@ public class User {
             }
         });
 
+        returnButton.setOnAction(event -> {
+            adminObj.menu();
+            addbookStage.close();
+        });
+
     }
+
+    private void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION, message);
+        alert.setHeaderText(title);
+        alert.showAndWait();
+    }
+
+
 }
+
 
 

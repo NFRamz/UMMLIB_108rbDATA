@@ -1,5 +1,6 @@
 package Testing;
 
+import data.User;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -26,30 +27,49 @@ public class Chatbot extends Application {
     private ListView<String> chatList;
     private TextField inputField;
     private Button sendButton;
+    private Label statusLabel;
 
     @Override
     public void start(Stage primaryStage) {
         // Chat ListView for messages
+
         chatList = new ListView<>(messages);
-        chatList.setPrefHeight(400);
+        chatList.getStyleClass().add("chat-list");
         chatList.setCellFactory(param -> new ListCell<>() {
+            private final Label label = new Label();
+            private final HBox content = new HBox();
+
+            {
+                label.setWrapText(true);
+                label.setPadding(new Insets(10));
+                label.setMaxWidth(400); // batasi lebar maksimum pesan
+                content.setPadding(new Insets(5));
+            }
+
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty || item == null) {
                     setText(null);
-                    setStyle("");
+                    setGraphic(null);
                 } else {
-                    setText(item);
-                    // Style user and bot messages differently
+                    label.setText(item);
+
                     if (item.startsWith("Kamu:")) {
-                        setStyle("-fx-background-color: #e0f7fa; -fx-padding: 10; -fx-background-radius: 10; -fx-alignment: top-right;");
+                        content.getChildren().setAll(label);
+                        content.setAlignment(Pos.CENTER_RIGHT);
+                        label.setStyle("-fx-background-color: #DCF8C6; -fx-background-radius: 12; -fx-text-fill: black;");
                     } else {
-                        setStyle("-fx-background-color: #f5f5f5; -fx-padding: 10; -fx-background-radius: 10; -fx-alignment: top-left;");
+                        content.getChildren().setAll(label);
+                        content.setAlignment(Pos.CENTER_LEFT);
+                        label.setStyle("-fx-background-color: #E5E5EA; -fx-background-radius: 12; -fx-text-fill: black;");
                     }
+
+                    setGraphic(content);
                 }
             }
         });
+
 
         // Input field
         inputField = new TextField();
@@ -62,6 +82,10 @@ public class Chatbot extends Application {
         sendButton.setOnAction(e -> sendMessage());
         sendButton.getStyleClass().add("send-button");
 
+        // Status label for loading
+        statusLabel = new Label();
+        statusLabel.getStyleClass().add("status-label");
+
         // Input box
         HBox inputBox = new HBox(10, inputField, sendButton);
         inputBox.setAlignment(Pos.CENTER);
@@ -69,10 +93,12 @@ public class Chatbot extends Application {
         inputBox.getStyleClass().add("input-box");
 
         // Main layout
-        VBox root = new VBox(10, chatList, inputBox);
+        VBox root = new VBox(10, chatList, statusLabel, inputBox);
         root.setPadding(new Insets(15));
         root.setAlignment(Pos.CENTER);
         root.getStyleClass().add("root");
+        VBox.setVgrow(chatList, Priority.ALWAYS);
+        chatList.maxWidthProperty().bind(root.widthProperty().subtract(30));
 
         // Scene and stage
         Scene scene = new Scene(root, 600, 500);
@@ -88,13 +114,23 @@ public class Chatbot extends Application {
 
         messages.add("Kamu: " + userMessage);
         inputField.clear();
+        chatList.scrollTo(messages.size() - 1);
+        Platform.runLater(() -> statusLabel.setText("Menunggu respons bot..."));
 
         new Thread(() -> {
             try {
                 String response = askGPT(userMessage);
-                Platform.runLater(() -> messages.add("Bot: " + response));
+                Platform.runLater(() -> {
+                    messages.add("Bot: " + response);
+                    chatList.scrollTo(messages.size() - 1);
+                    statusLabel.setText("");
+                });
             } catch (Exception e) {
-                Platform.runLater(() -> messages.add("Bot: (Terjadi kesalahan: " + e.getMessage() + ")"));
+                Platform.runLater(() -> {
+                    messages.add("Bot: (Terjadi kesalahan: " + e.getMessage() + ")");
+                    chatList.scrollTo(messages.size() - 1);
+                    statusLabel.setText("");
+                });
             }
         }).start();
     }
@@ -119,9 +155,21 @@ public class Chatbot extends Application {
         in.close();
         conn.disconnect();
 
-        // Parse JSON dan ambil hanya bagian "result"
-        JSONObject json = new JSONObject(response.toString());
-        return json.optString("result", "(Tidak ada respons dari bot)");
+        try {
+            JSONObject json = new JSONObject(response.toString());
+            String result = json.optString("result", "(Tidak ada respons dari bot)");
+            if (result.length() > 500) {
+                StringBuilder formattedResult = new StringBuilder();
+                for (int i = 0; i < result.length(); i += 500) {
+                    int end = Math.min(i + 500, result.length());
+                    formattedResult.append(result, i, end).append("\n");
+                }
+                return formattedResult.toString();
+            }
+            return result;
+        } catch (Exception e) {
+            return "(Error parsing API response: " + e.getMessage() + ")";
+        }
     }
 
     public static void main(String[] args) {

@@ -2,6 +2,8 @@ package data;
 
 import Features.Database;
 import commands.CMD;
+import javafx.application.Platform;
+import javafx.concurrent.Task;
 import util.iMenu;
 import exception.custom.IllegalAdminAccess;
 import javafx.animation.TranslateTransition;
@@ -46,6 +48,7 @@ public class LoginMenu implements iMenu{
 
         Label errorLoginMessage   = new Label("Pengguna tidak ditemukan !");
         errorLoginMessage.setFont(Font.font("Calibri Body", FontWeight.BOLD, 13));
+
         errorLoginMessage.setStyle("-fx-text-fill: #FFFFFF;");
         errorLoginMessage.setTranslateX(69);
         errorLoginMessage.setTranslateY(48);
@@ -147,6 +150,7 @@ public class LoginMenu implements iMenu{
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Window Settings <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
+
         StackPane stackPane = new StackPane();
         stackPane.getChildren().addAll(backgroundImageView,errorElementGroup,rectangle,grid,logoImageView,logoNameImageView,closeButton);
 
@@ -194,12 +198,45 @@ public class LoginMenu implements iMenu{
                             primaryStage.close();
 
                         } else {
-                            Database.book_expiredBorrowedBookSendEmail(usernameField.getText());
-                            errorLoginMessage.setText("Akun telah ditangguhkan!");
-
+                            errorLoginMessage.setText("Mohon Tunggu,sedang Verifikasi");
                             Sound.falseLogin();
                             errorElementGroup.setVisible(true);
                             anim_errorElemenGroup.play();
+                            Task<Void> emailTask = new Task<>() {
+                                @Override
+                                protected Void call() {
+
+                                    try {
+                                        Database.book_expiredBorrowedBookSendEmail(nim);
+                                        System.out.println("Background email task completed for NIM: " + nim);
+                                    } catch (Exception e) {
+                                        System.out.println("Error in background email task: " + e.getMessage());
+                                    }
+                                    return null;
+                                }
+                            };
+
+                            // Update UI after task completes
+                            emailTask.setOnSucceeded(e -> Platform.runLater(() -> {
+
+                                errorLoginMessage.setText("Akun telah ditangguhkan!");
+                                Sound.falseLogin();
+                                errorElementGroup.setVisible(true);
+                                anim_errorElemenGroup.play();
+                            }));
+
+                            // Handle task failure
+                            emailTask.setOnFailed(e -> Platform.runLater(() -> {
+                                System.out.println("Email task failed: " + emailTask.getException().getMessage());
+
+                                errorLoginMessage.setText("Akun telah ditangguhkan!");
+                                Sound.falseLogin();
+                                errorElementGroup.setVisible(true);
+                                anim_errorElemenGroup.play();
+                            }));
+
+                            // Start the task in a new thread
+                            new Thread(emailTask).start();
 
                         }
                     } else {
@@ -209,6 +246,7 @@ public class LoginMenu implements iMenu{
                         anim_errorElemenGroup.play();
                     }
                 } catch (IllegalAdminAccess message) {
+
                     errorLoginMessage.setText(message.getMessage());
                     errorElementGroup.setVisible(true);
 
@@ -220,5 +258,10 @@ public class LoginMenu implements iMenu{
 
         });
 
+    }
+    private void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION, message);
+        alert.setHeaderText(title);
+        alert.showAndWait();
     }
 }

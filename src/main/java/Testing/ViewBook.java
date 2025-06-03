@@ -1,15 +1,7 @@
 package Testing;
 
-import Features.Database;
 import Testing.datatest.SimulasiData;
 import data.Admin;
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
-import javafx.concurrent.Task;
-import javafx.scene.control.cell.TextFieldTableCell;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
-import javafx.util.Duration;
 import javafx.application.Application;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -19,10 +11,12 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
+import javafx.scene.control.cell.TextFieldTableCell;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.converter.IntegerStringConverter;
 
@@ -32,7 +26,7 @@ import java.util.List;
 
 //POSISI TABEL
 //KUrang tombol simpan data ke dataabase
-public class ViewBorrowedBook extends Application {
+public class ViewBook extends Application {
 
     public static class Book {
         private   SimpleStringProperty nim;
@@ -71,6 +65,8 @@ public class ViewBorrowedBook extends Application {
         public void setCategory(String category) { this.category.set(category); }
         public void setDuration(int duration) { this.duration.set(duration); }
         public void setExpired(String expired) { this.expired.set(expired); }
+
+        public void setStock(int stock) { this.stock.set(stock); }
 
 
         public String getNim() { return nim.get(); }
@@ -122,10 +118,9 @@ public class ViewBorrowedBook extends Application {
 
     private final ObservableList<Book> bookList = FXCollections.observableArrayList();
     private final String dbUrl = "jdbc:sqlite:src/main/java/.database/Book";
-    private   ObservableList<Book> borrowedBook = FXCollections.observableArrayList();
 
     private final List<AddUser> addUser = new ArrayList<>();
-    private final List<Book> addbook = new ArrayList<>();
+    private final List<SimulasiData.Book> addbook = new ArrayList<>();
 
 
     //=====================================================================================================
@@ -135,7 +130,7 @@ public class ViewBorrowedBook extends Application {
     @Override
     public void start(Stage primaryStage) {
         //Background
-        Image backgroundImage = new Image("file:src/main/java/image/Manage_bukuTerpinjam.png");
+        Image backgroundImage = new Image("file:src/main/java/image/listBuku.png");
         ImageView backgroundImageView = new ImageView(backgroundImage);
         backgroundImageView.setFitHeight(768);
         backgroundImageView.setFitWidth(1366);
@@ -161,19 +156,14 @@ public class ViewBorrowedBook extends Application {
         TableView<Book> tableView = new TableView<>();
         tableView.setStyle("-fx-font-size: 13px;");
         tableView.setMinWidth(500);     // Lebar
-        tableView.setMaxWidth(1278);     // Lebar
+        tableView.setMaxWidth(1278);
         tableView.setMinHeight(500);     // Tinggi
         tableView.setTranslateX(0);
         tableView.setTranslateY(12);
         tableView.getStylesheets().add("file:src/main/java/css/table.css");
 
         tableView.setEditable(true);
-        tableView.setItems(borrowedBook);
-
-        TableColumn<Book, String> nimCol = new TableColumn<>("NIM");
-        nimCol.setCellValueFactory(cell -> cell.getValue().nim);
-        nimCol.setCellFactory(TextFieldTableCell.forTableColumn());
-        nimCol.setOnEditCommit(e -> e.getRowValue().setNim(e.getNewValue()));
+        tableView.setItems(bookList);
 
         TableColumn<Book, String> bookIdCol = new TableColumn<>("ID Buku");
         bookIdCol.setCellValueFactory(cell -> cell.getValue().bookId);
@@ -197,28 +187,20 @@ public class ViewBorrowedBook extends Application {
         categoryCol.setCellFactory(TextFieldTableCell.forTableColumn());
         categoryCol.setOnEditCommit(e -> e.getRowValue().setCategory(e.getNewValue()));
 
-
-        TableColumn<Book, Integer> durationCol = new TableColumn<>("Durasi (hari)");
-        durationCol.setCellValueFactory(cell -> cell.getValue().duration.asObject());
-        durationCol.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
-        durationCol.setOnEditCommit(e -> e.getRowValue().setDuration(e.getNewValue()));
-
-
-        TableColumn<Book, String> expiredCol = new TableColumn<>("Kembali");
-        expiredCol.setCellValueFactory(cell -> cell.getValue().expired);
-        expiredCol.setCellFactory(TextFieldTableCell.forTableColumn());
-        expiredCol.setOnEditCommit(e -> e.getRowValue().setExpired(e.getNewValue()));
+        TableColumn<Book, Integer> stock = new TableColumn<>("Stock");
+        stock.setCellValueFactory(cell -> cell.getValue().stock.asObject());
+        stock.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
+        stock.setOnEditCommit(e -> e.getRowValue().setStock(e.getNewValue()));
 
 
-        nimCol.setPrefWidth(200);
         bookIdCol.setPrefWidth(200);
         titleCol.setPrefWidth(200);
         authorCol.setPrefWidth(200);
         categoryCol.setPrefWidth(110);
-        durationCol.setPrefWidth(150);
-        expiredCol.setPrefWidth(150);
+        stock.setPrefWidth(100);
 
-        tableView.getColumns().addAll(nimCol, bookIdCol, titleCol, authorCol, categoryCol, durationCol, expiredCol);
+
+        tableView.getColumns().addAll(bookIdCol, titleCol, authorCol, categoryCol, stock);
 
         // Return Button
         Button returnButton = new Button("Kembali");
@@ -233,49 +215,19 @@ public class ViewBorrowedBook extends Application {
         Button btn_muatUlang = new Button("Muat Ulang");
         btn_muatUlang.getStylesheets().add("file:src/main/java/css/Login_button.css");
         btn_muatUlang.setOnAction(e -> {
-            List<Book> latestData = updateBorrowedBooks();
+            List<Book> latestData = updateBorrowedBooks(); // Ambil data terbaru dari database
 
-            borrowedBook.clear();                // Kosongkan yang lama
-            borrowedBook.addAll(latestData);    // Tambahkan data dari DB
-
+            bookList.clear();                // Kosongkan yang lama
+            bookList.addAll(latestData);    // Tambahkan data dari DB
             tableView.refresh();                    // Refresh tampilan tabel
         });
 
         Button btn_update = new Button("Simpan Perubahan");
         btn_update.getStylesheets().add("file:src/main/java/css/Login_button.css");
         btn_update.setOnAction(e -> {
-            btn_update.setDisable(true); // Mencegah klik ganda
-            System.out.println("Menyimpan data buku ke database...");
 
-            Task<Void> updateTask = new Task<>() {
-                @Override
-                protected Void call() {
-                    try {
-                        saveBooksToDatabase();
-                        System.out.println("Data buku berhasil disimpan ke database.");
-                    } catch (Exception ex) {
-                        System.out.println("Terjadi kesalahan saat menyimpan data buku: " + ex.getMessage());
-                        ex.printStackTrace();
-                    }
-                    return null;
-                }
-            };
-
-            updateTask.setOnSucceeded(ev -> {
-                System.out.println("Operasi penyimpanan selesai.");
-                btn_update.setDisable(false);
-            });
-
-            updateTask.setOnFailed(ev -> {
-                System.out.println("Operasi penyimpanan gagal.");
-                btn_update.setDisable(false);
-            });
-
-            Thread thread = new Thread(updateTask);
-            thread.setDaemon(true);
-            thread.start();
+            saveToDatabase();
         });
-
 
         // Search Logic
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
@@ -283,10 +235,10 @@ public class ViewBorrowedBook extends Application {
             ObservableList<Book> filteredList = FXCollections.observableArrayList();
 
             if (filter.isEmpty()) {
-                filteredList.addAll(borrowedBook);
+                filteredList.addAll(bookList);
             } else {
-                for (Book book : borrowedBook) {
-                    if (book.getNim().toLowerCase().contains(filter) || book.getTitle().toLowerCase().contains(filter) || book.getAuthor().toLowerCase().contains(filter)) {
+                for (Book book : bookList) {
+                    if (book.getBookId().toLowerCase().contains(filter)||book.getTitle().toLowerCase().contains(filter) || book.getAuthor().toLowerCase().contains(filter)) {
                         filteredList.add(book);
                     }
                 }
@@ -295,11 +247,6 @@ public class ViewBorrowedBook extends Application {
         });
 
         // Layout
-        VBox searchBoxContainer = new VBox(10, searchBox);
-
-
-        VBox rootTable = new VBox(28, tableView);
-
         //BUTTON DELETE
         // Inside the start method, modify the button HBox to include the delete button
         Button btn_delete = new Button("Hapus");
@@ -308,27 +255,28 @@ public class ViewBorrowedBook extends Application {
             Book selectedBook = tableView.getSelectionModel().getSelectedItem();
             if (selectedBook != null) {
                 deleteBookFromDatabase(selectedBook);
-                borrowedBook.remove(selectedBook);
+                bookList.remove(selectedBook);
                 tableView.refresh();
             } else {
                 showAlert("Pilih Buku", "Silakan pilih buku dari tabel untuk dihapus.");
             }
         });
 
-        //SUSUN INI DAI
+        VBox searchBoxContainer = new VBox(10, searchBox);
+
+
+        VBox rootTable = new VBox(28, tableView);
         rootTable.setTranslateY(137);//200=makin kebawah, 100 = makin keatas
         rootTable.setTranslateX(46);
         rootTable.setPadding(new Insets(0));
 
-        HBox rootBtn = new HBox(10, returnButton, btn_muatUlang, btn_update, btn_delete);
+        HBox rootBtn = new HBox(10, returnButton, btn_muatUlang,btn_update, btn_delete);
 
-        //SUSUN INI DAI
+
         rootBtn.setTranslateY(670);
         rootBtn.setTranslateX(250);
 
         rootBtn.setPadding(new Insets(15));
-
-
 
 
 
@@ -346,7 +294,7 @@ public class ViewBorrowedBook extends Application {
         loadBooksFromDatabase();
 
 
-        System.out.print("DEBUG - Ukuran ArrayList borrowedBook: " + borrowedBook.size());
+
         System.out.print("DEBUG - Ukuran ArrayList bookList: " + bookList.size());
 
     }
@@ -356,11 +304,9 @@ public class ViewBorrowedBook extends Application {
 
     //========================================DATA=======================================================
     private final String DB_URL = "jdbc:sqlite:src/main/java/.database/Book";
-
-    // New method to delete a book from the database
     private void deleteBookFromDatabase(Book book) {
         String url = "jdbc:sqlite:src/main/java/.database/Book";
-        String deleteSQL = "DELETE FROM borrowed_books WHERE book_id = ?";
+        String deleteSQL = "DELETE FROM book_data WHERE id = ?";
 
         try (Connection conn = DriverManager.getConnection(url);
              PreparedStatement pstmt = conn.prepareStatement(deleteSQL)) {
@@ -382,20 +328,19 @@ public class ViewBorrowedBook extends Application {
         }
     }
 
-    public void saveBorrowedBooks(List<Book> borrowedBooks) {
-        String sql = "INSERT INTO borrowed_books (nim, book_id, title, author, category, duration, expired_borrowedBook) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    public void saveBooks(List<Book> bookList) {
+        String sql = "INSERT INTO book_data (id, title, author, category, stock) VALUES (?, ?, ?, ?, ?)";
 
         try (Connection conn = DriverManager.getConnection(DB_URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            for (ViewBorrowedBook.Book book : borrowedBooks) {
-                pstmt.setString(1, book.getNim());
-                pstmt.setString(2, book.getBookId());
-                pstmt.setString(3, book.getTitle());
-                pstmt.setString(4, book.getAuthor());
-                pstmt.setString(5, book.getCategory());
-                pstmt.setInt(6, book.getDuration());
-                pstmt.setString(7, book.getExpired());
+            for (ViewBook.Book book : bookList) {
+                pstmt.setString(1, book.getBookId());
+                pstmt.setString(2, book.getTitle());
+                pstmt.setString(3, book.getAuthor());
+                pstmt.setString(4, book.getCategory());
+                pstmt.setInt(5, book.getStock());
+
                 pstmt.addBatch();
             }
 
@@ -408,22 +353,21 @@ public class ViewBorrowedBook extends Application {
     }
     private void loadBooksFromDatabase() {
         String url = "jdbc:sqlite:src/main/java/.database/Book";
-        String query = "SELECT * FROM borrowed_books";
+        String query = "SELECT * FROM book_data";
 
         try (Connection conn = DriverManager.getConnection(url);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
 
             while (rs.next()) {
-                String nim = rs.getString("nim");
-                String bookId = rs.getString("book_id");
+                String bookId = rs.getString("id");
                 String title = rs.getString("title");
                 String author = rs.getString("author");
                 String category = rs.getString("category");
-                int duration = rs.getInt("duration");
-                String expired = rs.getString("expired_borrowedBook");
+                int stock = rs.getInt("Stock");
 
-                borrowedBook.add(new Book(nim, bookId, title, author, category, duration, expired));
+
+                bookList.add(new Book(bookId, title, author, category, stock));
             }
 
         } catch (SQLException e) {
@@ -434,7 +378,7 @@ public class ViewBorrowedBook extends Application {
     }
 
     public void clearBorrowedBooks() {
-        String sql = "DELETE FROM borrowed_books";
+        String sql = "DELETE FROM book_data";
 
         try (Connection conn = DriverManager.getConnection(DB_URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -449,19 +393,17 @@ public class ViewBorrowedBook extends Application {
 
     private void saveBooksToDatabase() {
         String url = "jdbc:sqlite:src/main/java/.database/Book";
-        String insertSQL = "INSERT OR REPLACE INTO borrowed_books (nim, book_id, title, author, category, duration, expired_borrowedBook) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String insertSQL = "INSERT OR REPLACE book_data (id, title, author, category, stock) VALUES (?, ?, ?, ?, ?)";
 
         try (Connection conn = DriverManager.getConnection(url);
              PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
 
-            for (Book book : borrowedBook) {
-                pstmt.setString(1, book.getNim());
-                pstmt.setString(2, book.getBookId());
-                pstmt.setString(3, book.getTitle());
-                pstmt.setString(4, book.getAuthor());
-                pstmt.setString(5, book.getCategory());
-                pstmt.setInt(6, book.getDuration());
-                pstmt.setString(7, book.getExpired());
+            for (Book book : bookList) {
+                pstmt.setString(1, book.getBookId());
+                pstmt.setString(2, book.getTitle());
+                pstmt.setString(3, book.getAuthor());
+                pstmt.setString(4, book.getCategory());
+                pstmt.setInt(5, book.getStock());
                 pstmt.addBatch(); // Tambahkan ke batch
             }
 
@@ -470,14 +412,13 @@ public class ViewBorrowedBook extends Application {
 
         } catch (SQLException e) {
             e.printStackTrace();
-            Alert alert = new Alert(Alert.AlertType.ERROR, "Gagal menyimpan data: " + e.getMessage());
-            alert.showAndWait();
+
         }
     }
 
     private void saveToDatabase() {
-        String deleteAll = "DELETE FROM borrowed_books";
-        String insert = "INSERT INTO borrowed_books (nim, book_id, title, author, category, duration, expired_borrowedBook) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String deleteAll = "DELETE FROM book_data";
+        String insert = "INSERT INTO book_data ( id, title, author, category, stock) VALUES (?, ?, ?, ?, ?)";
 
         try (Connection conn = DriverManager.getConnection(dbUrl);
              Statement stmt = conn.createStatement()) {
@@ -487,13 +428,11 @@ public class ViewBorrowedBook extends Application {
 
             try (PreparedStatement ps = conn.prepareStatement(insert)) {
                 for (Book book : bookList) {
-                    ps.setString(1, book.getNim());
-                    ps.setString(2, book.getBookId());
-                    ps.setString(3, book.getTitle());
-                    ps.setString(4, book.getAuthor());
-                    ps.setString(5, book.getCategory());
-                    ps.setInt(6, book.getDuration());
-                    ps.setString(7, book.getExpired());
+                    ps.setString(1, book.getBookId());
+                    ps.setString(2, book.getTitle());
+                    ps.setString(3, book.getAuthor());
+                    ps.setString(4, book.getCategory());
+                    ps.setInt(5, book.getStock());
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -509,23 +448,22 @@ public class ViewBorrowedBook extends Application {
 
     // Tambahkan tombol "Update" → load ulang dari database
     public static List<Book> updateBorrowedBooks() {
-        List<ViewBorrowedBook.Book> bookList = new ArrayList<>();
-        String sql = "SELECT * FROM borrowed_books";
+        List<ViewBook.Book> bookList = new ArrayList<>();
+        String sql = "SELECT * FROM book_data";
 
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:src/main/java/.database/Book");
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
-                String nim = rs.getString("nim");
-                String bookId = rs.getString("book_id");
+                String id = rs.getString("id");
                 String title = rs.getString("title");
                 String author = rs.getString("author");
                 String category = rs.getString("category");
-                int duration = rs.getInt("duration");
-                String expired = rs.getString("expired_borrowedBook");
+                int stock = rs.getInt("stock");
 
-                Book book = new ViewBorrowedBook.Book(nim, bookId, title, author, category, duration, expired);
+
+                ViewBook.Book book = new ViewBook.Book(id, title, author, category, stock);
                 bookList.add(book);
             }
 

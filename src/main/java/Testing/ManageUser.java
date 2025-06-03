@@ -1,188 +1,209 @@
 package Testing;
 
-import data.Admin;
 import javafx.application.Application;
-import javafx.beans.property.SimpleIntegerProperty;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.converter.IntegerStringConverter;
 
 import java.sql.*;
+import java.util.ArrayList;
 
 public class ManageUser extends Application {
 
-    public static class Book {
-        private final SimpleStringProperty nim;
-        private final SimpleStringProperty bookId;
-        private final SimpleStringProperty title;
-        private final SimpleStringProperty author;
-        private final SimpleStringProperty category;
-        private final SimpleIntegerProperty duration;
-        private final SimpleStringProperty expired;
+    // Inner class untuk Student
+    public static class Student {
+        private String nim;
+        private String pic;
+        private String name;
+        private String faculty;
+        private String major;
+        private String email;
 
-        public Book(String nim, String bookId, String title, String author, String category, int duration, String expired) {
-            this.nim = new SimpleStringProperty(nim);
-            this.bookId = new SimpleStringProperty(bookId);
-            this.title = new SimpleStringProperty(title);
-            this.author = new SimpleStringProperty(author);
-            this.category = new SimpleStringProperty(category);
-            this.duration = new SimpleIntegerProperty(duration);
-            this.expired = new SimpleStringProperty(expired);
+        public Student(String nim, String pic, String name, String faculty, String major, String email) {
+            this.nim = nim;
+            this.pic = pic;
+            this.name = name;
+            this.faculty = faculty;
+            this.major = major;
+            this.email = email;
         }
 
-        public String getNim() { return nim.get(); }
-        public String getBookId() { return bookId.get(); }
-        public String getTitle() { return title.get(); }
-        public String getAuthor() { return author.get(); }
-        public String getCategory() { return category.get(); }
-        public int getDuration() { return duration.get(); }
-        public String getExpired() { return expired.get(); }
+        public String getNim() { return nim; }
 
-        public void setNim(String nim) { this.nim.set(nim); }
-        public void setBookId(String bookId) { this.bookId.set(bookId); }
-        public void setTitle(String title) { this.title.set(title); }
-        public void setAuthor(String author) { this.author.set(author); }
-        public void setCategory(String category) { this.category.set(category); }
-        public void setDuration(int duration) { this.duration.set(duration); }
-        public void setExpired(String expired) { this.expired.set(expired); }
+        public void setNim(String nim) {
+            this.nim = nim;
+        }
+
+        public void setPic(String pic) {
+            this.pic = pic;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public void setFaculty(String faculty) {
+            this.faculty = faculty;
+        }
+
+        public void setMajor(String major) {
+            this.major = major;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getPic() { return pic; }
+        public String getName() { return name; }
+        public String getFaculty() { return faculty; }
+        public String getMajor() { return major; }
+        public String getEmail() { return email; }
     }
 
-    private final ObservableList<Book> bookList = FXCollections.observableArrayList();
-    private final String dbUrl = "jdbc:sqlite:src/main/java/.database/Book";
+    private final ArrayList<Student> studentList = new ArrayList<>();
 
-    Admin adminObj = new Admin();
+    public static void main(String[] args) {
+        launch(args);
+    }
+
+    private void loadStudentsFromDatabase() {
+        String url = "jdbc:sqlite:src/main/java/.database/User_database";
+        String sql = "SELECT * FROM mahasiswa_credentials";
+
+        try (Connection conn = DriverManager.getConnection(url);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                String nim = rs.getString("nim");
+                String pic = rs.getString("pic");
+                String name = rs.getString("name");
+                String faculty = rs.getString("faculty");
+                String major = rs.getString("major");
+                String email = rs.getString("email");
+                System.out.println("Ukuran ArrayList: " + studentList.size());
+                studentList.add(new Student(nim, pic, name, faculty, major, email));
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 
     @Override
     public void start(Stage stage) {
-        TableView<Book> table = new TableView<>(bookList);
+        loadStudentsFromDatabase();
+
+        TableView<Student> table = new TableView<>();
         table.setEditable(true);
 
-        TableColumn<Book, String> nimCol = new TableColumn<>("NIM");
-        nimCol.setCellValueFactory(cell -> cell.getValue().nim);
+        TableColumn<ViewStudent.Student, String> nimCol     = new TableColumn<>("NIM");
+        TableColumn<ViewStudent.Student, String> picCol     = new TableColumn<>("PIC");
+        TableColumn<ViewStudent.Student, String> nameCol    = new TableColumn<>("Nama");
+        TableColumn<ViewStudent.Student, String> facultyCol = new TableColumn<>("Fakultas");
+        TableColumn<ViewStudent.Student, String> majorCol   = new TableColumn<>("Jurusan");
+        TableColumn<ViewStudent.Student, String> emailCol   = new TableColumn<>("Email");
+
+        nimCol.setCellValueFactory(new PropertyValueFactory<>("nim"));
         nimCol.setCellFactory(TextFieldTableCell.forTableColumn());
         nimCol.setOnEditCommit(e -> e.getRowValue().setNim(e.getNewValue()));
 
-        TableColumn<Book, String> bookIdCol = new TableColumn<>("ID Buku");
-        bookIdCol.setCellValueFactory(cell -> cell.getValue().bookId);
-        bookIdCol.setCellFactory(TextFieldTableCell.forTableColumn());
-        bookIdCol.setOnEditCommit(e -> e.getRowValue().setBookId(e.getNewValue()));
+        picCol.setCellValueFactory(new PropertyValueFactory<>("pic"));
+        nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
+        facultyCol.setCellValueFactory(new PropertyValueFactory<>("faculty"));
+        majorCol.setCellValueFactory(new PropertyValueFactory<>("major"));
+        emailCol.setCellValueFactory(new PropertyValueFactory<>("email"));
 
-        TableColumn<Book, String> titleCol = new TableColumn<>("Judul");
-        titleCol.setCellValueFactory(cell -> cell.getValue().title);
-        titleCol.setCellFactory(TextFieldTableCell.forTableColumn());
-        titleCol.setOnEditCommit(e -> e.getRowValue().setTitle(e.getNewValue()));
+        Button btnUpdate = new Button("Update");
 
-        TableColumn<Book, String> authorCol = new TableColumn<>("Penulis");
-        authorCol.setCellValueFactory(cell -> cell.getValue().author);
-        authorCol.setCellFactory(TextFieldTableCell.forTableColumn());
-        authorCol.setOnEditCommit(e -> e.getRowValue().setAuthor(e.getNewValue()));
 
-        TableColumn<Book, String> categoryCol = new TableColumn<>("Kategori");
-        categoryCol.setCellValueFactory(cell -> cell.getValue().category);
-        categoryCol.setCellFactory(TextFieldTableCell.forTableColumn());
-        categoryCol.setOnEditCommit(e -> e.getRowValue().setCategory(e.getNewValue()));
+        VBox root = new VBox();
 
-        TableColumn<Book, Integer> durationCol = new TableColumn<>("Durasi (hari)");
-        durationCol.setCellValueFactory(cell -> cell.getValue().duration.asObject());
-        durationCol.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
-        durationCol.setOnEditCommit(e -> e.getRowValue().setDuration(e.getNewValue()));
+        VBox layout = new VBox(table);
+        Scene scene = new Scene(layout, 900, 500);
 
-        TableColumn<Book, String> expiredCol = new TableColumn<>("Kembali");
-        expiredCol.setCellValueFactory(cell -> cell.getValue().expired);
-        expiredCol.setCellFactory(TextFieldTableCell.forTableColumn());
-        expiredCol.setOnEditCommit(e -> e.getRowValue().setExpired(e.getNewValue()));
+        HBox layout1 = new HBox(btnUpdate);
+        layout1.setSpacing(10);
+        layout1.setAlignment(Pos.CENTER);
 
-        table.getColumns().addAll(nimCol, bookIdCol, titleCol, authorCol, categoryCol, durationCol, expiredCol);
+        root.getChildren().addAll(layout, layout1);
 
-        Button backBtn = new Button("Kembali");
-        backBtn.setOnAction(e -> {
-            saveToDatabase();
-            // logika kembali ke adminMenuobj, misalnya:
-            adminObj.menu();
-            stage.close();
-        });
-
-        VBox root = new VBox(10, table, backBtn);
-        root.setPadding(new Insets(10));
-
-        loadFromDatabase();
-        stage.setTitle("Manajemen Peminjaman Buku");
+        stage.setTitle("Data Mahasiswa");
         stage.setScene(new Scene(root, 900, 600));
         stage.show();
-    }
 
-    private void loadFromDatabase() {
-        bookList.clear();
-        String query = "SELECT * FROM borrowed_books";
-        try (Connection conn = DriverManager.getConnection(dbUrl);
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(query)) {
-            while (rs.next()) {
-                bookList.add(new Book(
-                        rs.getString("nim"),
-                        rs.getString("book_id"),
-                        rs.getString("title"),
-                        rs.getString("author"),
-                        rs.getString("category"),
-                        rs.getInt("duration"),
-                        rs.getString("expired_borrowedBook")
-                ));
-            }
-        } catch (SQLException e) {
-            showAlert("Gagal Memuat Data", e.getMessage());
-        }
+        //AKSI TOMBOL
+
+        btnUpdate.setOnAction(event -> {
+
+        });
+
+        btnUpdate.setOnAction(event -> {
+
+        });
     }
 
     private void saveToDatabase() {
         String deleteAll = "DELETE FROM borrowed_books";
-        String insert = "INSERT INTO borrowed_books (nim, book_id, title, author, category, duration, expired_borrowedBook) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String insert = "INSERT INTO mahasiswa_C (nim, pic, name, faculty, major, email) VALUES (?,?,?,?,?,?)";
 
-        try (Connection conn = DriverManager.getConnection(dbUrl);
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:src/main/java/.database/User_database");
              Statement stmt = conn.createStatement()) {
 
             conn.setAutoCommit(false);
             stmt.executeUpdate(deleteAll);
 
             try (PreparedStatement ps = conn.prepareStatement(insert)) {
-                for (Book book : bookList) {
-                    ps.setString(1, book.getNim());
-                    ps.setString(2, book.getBookId());
-                    ps.setString(3, book.getTitle());
-                    ps.setString(4, book.getAuthor());
-                    ps.setString(5, book.getCategory());
-                    ps.setInt(6, book.getDuration());
-                    ps.setString(7, book.getExpired());
+                for (Student student : studentList) {
+
+                    ps.setString(1, student.getNim());
+                    ps.setString(2, student.getName());
+                    ps.setString(3, student.getFaculty());
+                    ps.setString(4, student.getMajor());
+                    ps.setString(5, student.getEmail());
                     ps.addBatch();
+
                 }
                 ps.executeBatch();
             }
 
             conn.commit();
-            showAlert("Berhasil", "Semua perubahan berhasil disimpan.");
-
         } catch (SQLException e) {
-            showAlert("Gagal Menyimpan Data", e.getMessage());
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Gagal menyimpan data: " + e.getMessage());
+            alert.showAndWait();
         }
     }
 
-    private void showAlert(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION, message);
-        alert.setHeaderText(title);
-        alert.showAndWait();
+    private void saveStudentsFromDatabase() {
+        String url = "jdbc:sqlite:src/main/java/.database/User_database";
+        String sql = "INSERT INTO  mahasiswa_credentials (nim, pic, name, faculty, major, email) VALUES (?,?,?,?,?,?)";
+
+        try (Connection conn = DriverManager.getConnection(url);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                String nim = rs.getString("nim");
+                String pic = rs.getString("pic");
+                String name = rs.getString("name");
+                String faculty = rs.getString("faculty");
+                String major = rs.getString("major");
+                String email = rs.getString("email");
+                System.out.println("Ukuran ArrayList: " + studentList.size());
+                studentList.add(new Student(nim, pic, name, faculty, major, email));
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
-    public static void main(String[] args) {
-        launch(args);
-    }
+
 }
-

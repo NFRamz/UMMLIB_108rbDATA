@@ -6,9 +6,18 @@ import Features.DoubleClick_table;
 import books.Book;
 
 import Main.Main;
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
+import javafx.geometry.Insets;
+import javafx.scene.Group;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import sound.Sound;
 import util.iMenu;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -21,6 +30,7 @@ import javafx.stage.Stage;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Stack;
 
 public class Student extends User implements iMenu {
 
@@ -43,6 +53,7 @@ public class Student extends User implements iMenu {
 
     @Override
     public void menu() {
+
         //Label
         Label sceneTitle = new Label("Student Menu");
         sceneTitle.setStyle("-fx-text-fill: #A91D3A;");
@@ -55,7 +66,6 @@ public class Student extends User implements iMenu {
         nameLabel.setTranslateX(510);
         nameLabel.setTranslateY(-345);
         nameLabel.setFont(Font.font("Tahoma", FontWeight.BOLD, 15));
-
 
 
         //Button
@@ -91,6 +101,7 @@ public class Student extends User implements iMenu {
 
         TableColumn<Book, String> titleColumn = new TableColumn<>("Nama Buku");
         titleColumn.setCellValueFactory(new PropertyValueFactory<>("title"));
+        titleColumn.setMaxWidth(500);
 
         TableColumn<Book, String> authorColumn = new TableColumn<>("Penulis");
         authorColumn.setCellValueFactory(new PropertyValueFactory<>("author"));
@@ -191,21 +202,53 @@ public class Student extends User implements iMenu {
 
 
         logoutButton.setOnAction(event -> {
-            String nim = LoginMenu.usernameField.getText();
+            System.out.println("Logout dimulai...");
 
+            // 1. Segera buka halaman login dan tutup halaman lama (student menu)
             try {
-                Database.book_saveOrDeleteBorrowedBooks(LoginMenu.usernameField.getText());
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
+                Main mainobj = new Main();
+                mainobj.start(new Stage());
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
-            Database.book_updateBookStock();
-            Book.arr_borrowedBook.clear();
-            Book.arr_bookList.clear();
+            studentMenuStage.close(); // Langsung ditutup tanpa menunggu proses di belakang
 
-            Main mainobj = new Main();
-            mainobj.start(new Stage());
-            studentMenuStage.close();
+            // 2. Jalankan proses simpan data di background
+            Task<Void> backgroundLogoutTask = new Task<>() {
+                @Override
+                protected Void call() throws Exception {
+                    String nim = LoginMenu.usernameField.getText();
+
+                    System.out.println("Menyimpan atau menghapus data peminjaman...");
+                    Database.book_saveOrDeleteBorrowedBooks(nim);
+                    System.out.println("Selesai menyimpan/menghapus peminjaman.");
+
+                    System.out.println("Mengupdate stok buku...");
+                    Database.book_updateBookStock();
+                    System.out.println("Stok buku terupdate.");
+
+                    System.out.println("Membersihkan data ArrayList...");
+                    Book.arr_borrowedBook.clear();
+                    Book.arr_bookList.clear();
+                    System.out.println("ArrayList dibersihkan.");
+
+                    return null;
+                }
+            };
+
+            backgroundLogoutTask.setOnSucceeded(e -> {
+                System.out.println("Proses backend logout selesai.");
+            });
+
+            backgroundLogoutTask.setOnFailed(e -> {
+                System.out.println("Terjadi kesalahan saat proses backend logout: " + backgroundLogoutTask.getException().getMessage());
+            });
+
+            Thread backgroundThread = new Thread(backgroundLogoutTask);
+            backgroundThread.setDaemon(true);
+            backgroundThread.start();
         });
+
 
 
 
@@ -218,25 +261,42 @@ public class Student extends User implements iMenu {
 
     public static void returnBooks() {
 
+
         Stage returnBooksStage = new Stage();
         returnBooksStage.setTitle("UMM Library - Pengembalian buku");
 
-        //Label
-        Label headerTitle = new Label("PENGEMBALIAN BUKU");
-        Label bookIdLabel = new Label("Inputkan ID buku yang ingin dikembalikan");
+        //Background
+        Image backgroundImage = new Image("file:src/main/java/image/Pengembalian_buku.png");
+        ImageView backgroundImageView = new ImageView(backgroundImage);
+        backgroundImageView.setFitHeight(768);
+        backgroundImageView.setFitWidth(1366);
+        backgroundImageView.setMouseTransparent(true);
 
+        // Search Field
+        TextField searchField = new TextField();
+        searchField.setPromptText("🔍 Cari Judul / Penulis...");
+        searchField.setStyle("-fx-background-radius: 8; -fx-padding: 8px;");
+        Label searchLabel = new Label(" ");
+
+        HBox searchBox = new HBox(10, searchLabel, searchField);
+        searchBox.setAlignment(Pos.CENTER_RIGHT);
+        searchBox.setPadding(new Insets(20, 20, 0, 0));
+
+
+        //Label
+        Label bookIdLabel = new Label("Inputkan ID buku yang ingin dikembalikan");
+        bookIdLabel.setPadding(new Insets(10, 0, 0, 0));
         //Notification Label
         Label submitSuccesLabel = new Label("Pengembalian berhasil");
         Label submitFailedLabel = new Label("Pengembalian gagal");
+        Group notificationGroup = new Group(submitSuccesLabel, submitFailedLabel);
 
         //Font Style
-        headerTitle.setFont(Font.font("Tahoma", FontWeight.BOLD, 20));
         bookIdLabel.setFont(Font.font("Calibri Body", FontWeight.NORMAL, 15));
         submitFailedLabel.setFont(Font.font("Calibri Body", FontWeight.BOLD, 15));
         submitSuccesLabel.setFont(Font.font("Calibri Body", FontWeight.BOLD, 15));
 
         //Font Color
-        headerTitle.setStyle("-fx-text-fill: #A91D3A;");
         submitSuccesLabel.setStyle("-fx-text-fill: #16FF00;");
         submitFailedLabel.setStyle("-fx-text-fill: #FF1E1E;");
 
@@ -249,16 +309,34 @@ public class Student extends User implements iMenu {
 
         //Button
         Button submitButton = new Button("Submit");
-        Button returnButton = new Button("Kembali");
+        submitButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
 
+        Button returnButton = new Button("Kembali");
+        returnButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
         //Table label
         TableView<Book> returnBookTable = new TableView<>();
+        returnBookTable.setStyle("-fx-font-size: 13px;");
+        returnBookTable.setMinWidth(1200);
+        returnBookTable.setMaxWidth(1200);
+        returnBookTable.setMinHeight(400);
+        returnBookTable.setTranslateX(0);
+        returnBookTable.setTranslateY(12);
+        returnBookTable.getStylesheets().add("file:src/main/java/css/table.css");
 
         TableColumn<Book, String> idBookColumn = new TableColumn<>("ID Buku");
+        idBookColumn.setPrefWidth(210);
+
         TableColumn<Book, String> titleBookColumn = new TableColumn<>("Judul");
+        titleBookColumn.setPrefWidth(380);
+
         TableColumn<Book, String> authorBookColumn = new TableColumn<>("Author");
+        authorBookColumn.setPrefWidth(230);
+
         TableColumn<Book, String> categoryBookColumn = new TableColumn<>("Kategori");
+        categoryBookColumn.setPrefWidth(210);
+
         TableColumn<Book, String> durationBookColumn = new TableColumn<>("Durasi Pinjaman (Hari)");
+        durationBookColumn.setPrefWidth(150);
 
         idBookColumn.setCellValueFactory(new PropertyValueFactory<>("bookId"));
         titleBookColumn.setCellValueFactory(new PropertyValueFactory<>("title"));
@@ -284,37 +362,65 @@ public class Student extends User implements iMenu {
             }
         }
 
+        // Search Logic
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            String filter = newVal.toLowerCase();
+            ObservableList<Book> filteredList = FXCollections.observableArrayList();
+
+            if (filter.isEmpty()) {
+                filteredList.addAll(Book.arr_bookList);
+            } else {
+                for (Book book : Book.arr_bookList) {
+                    if (book.getTitle().toLowerCase().contains(filter) || book.getAuthor().toLowerCase().contains(filter)) {
+                        filteredList.add(book);
+                    }
+                }
+            }
+            returnBookTable.setItems(filteredList);
+        });
+
+        HBox  btn = new HBox(683,returnButton, submitButton);
+        btn.setPadding(new Insets(20, 0, 0, 0));
+        btn.setAlignment(Pos.CENTER);
+
+        VBox searchBoxContainer = new VBox(10, searchBox);
+        searchBoxContainer.setTranslateX(80);
+        searchBoxContainer.setTranslateY(-70);
+
+        HBox notificationBox = new HBox(683,notificationGroup);
+        notificationBox.setAlignment(Pos.CENTER);
+
+
+
         //Grid layout
         GridPane grid = new GridPane();
-
         grid.setAlignment(Pos.CENTER);
 
-        grid.add(headerTitle, 0, 0);
+        grid.add(searchBoxContainer, 0, 0);
         grid.add(returnBookTable, 0, 1);
 
         grid.add(bookIdLabel, 0, 2);
         grid.add(bookIdField, 0, 3);
 
-        grid.add(returnButton, 0, 4);
-        grid.add(submitButton, 0, 4);
+        grid.add(notificationBox, 0, 4);
 
-        grid.add(submitSuccesLabel, 0, 4);
-        grid.add(submitFailedLabel, 0, 4);
-
+        grid.add(btn, 0, 4);
 
         grid.setVgap(10);
         grid.setHgap(5);
 
-        headerTitle.setTranslateX(97);
-        submitButton.setTranslateX(348);
+
+        //submitButton.setTranslateX(348);
         submitSuccesLabel.setTranslateX(127);
         submitFailedLabel.setTranslateX(127);
 
-        Scene returnBookScene = new Scene(grid);
+        StackPane stackPane = new StackPane(backgroundImageView, grid);
+        Scene returnBookScene = new Scene(stackPane);
         returnBooksStage.setFullScreen(true);
         returnBooksStage.setFullScreenExitHint("");
         returnBooksStage.setScene(returnBookScene);
         returnBooksStage.show();
+
 
         //Action button
         //new

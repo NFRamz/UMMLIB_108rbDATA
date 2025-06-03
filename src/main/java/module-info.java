@@ -17,6 +17,7 @@ module Tugas_6_JavaFX{
         requires sqlite.jdbc;
         requires dotenv.java;
         requires org.json;
+        requires com.zaxxer.hikari;
 
         opens books to javafx.base;
         exports books;
@@ -32,7 +33,9 @@ module Tugas_6_JavaFX{
     opens Testing to javafx.fxml;
 
         exports Testing.datatest; // ⬅️ Tambahkan baris ini
+        exports Testing.tampilan; // ⬅️ Tambahkan baris ini
 
         opens Testing.datatest to javafx.graphics; // ⬅️ Ini juga penting agar JavaFX bisa mengaksesnya
+        opens Testing.tampilan to javafx.graphics; // ⬅️ Ini juga penting agar JavaFX bisa mengaksesnya
 }
 
