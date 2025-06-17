@@ -1,0 +1,13 @@
+.table-view {
+    -fx-background-radius: 10; /* adjust the value to change the corner radius */
+    -fx-background-color: #fff; /* adjust the background color */
+}
+
+.table-view.table-cell {
+    -fx-border-color: transparent;
+    -fx-padding: 2 0 2 10px;
+}
+
+.table-view.table-row-cell {
+    -fx-background-radius: 10; /* adjust the value to change the corner radius */
+}

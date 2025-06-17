@@ -1,0 +1,31 @@
+.button {
+    /* Font style */
+    -fx-font-size: 14;
+    -fx-text-fill: black;
+
+    /*Shape settings*/
+    -fx-background-radius: 30; /* Rounded rectangle shape */
+    -fx-background-color: white; /* White background */
+    -fx-padding: 5 0; /* Padding */
+
+    /*Size shape*/
+    -fx-min-height: 10;
+    -fx-min-width: 200;
+
+    /*Border settings*/
+    -fx-border-color: maroon; /* Black border color */
+    -fx-border-radius:30;
+    -fx-border-width: 3; /* Border width */
+
+}
+
+.button:hover {
+    -fx-background-color: maroon; /* Background color change on hover */
+    -fx-text-fill: white; /* Text color change on hover */
+
+}
+
+
+
+
+
