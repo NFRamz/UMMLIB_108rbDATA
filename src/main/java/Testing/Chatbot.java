@@ -1,5 +1,7 @@
 package Testing;
 
+import Testing.JDBC.SessionManager;
+import commands.ENV;
 import data.User;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -20,6 +22,9 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.UUID;
 
 public class Chatbot extends Application {
 
@@ -103,7 +108,7 @@ public class Chatbot extends Application {
         // Scene and stage
         Scene scene = new Scene(root, 600, 500);
         scene.getStylesheets().add("file:src/main/java/Testing/style.css");
-        primaryStage.setTitle("Chatbot GPT-4o");
+        primaryStage.setTitle("Chatbot");
         primaryStage.setScene(scene);
         primaryStage.show();
     }
@@ -136,9 +141,21 @@ public class Chatbot extends Application {
     }
 
     private String askGPT(String question) throws IOException {
-        URL url = new URL("https://fastrestapis.fasturl.cloud/aillm/gpt-4o?ask=" + URLEncoder.encode(question, "UTF-8"));
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        // Generate session ID otomatis
+        String sessionId = SessionManager.getSessionId();
 
+        // Baca isi file style_config.json
+        String styleJson = new String(Files.readAllBytes(Paths.get("src/main/java/Testing/datatest/Bot.json")));
+
+        // Bangun URL dengan parameter yang sesuai
+        //String urlStr = "https://fastrestapis.fasturl.cloud/aillm/gpt-4o"
+        String urlStr = ENV.get("BOT_API")
+                + "?ask=" + URLEncoder.encode(question, "UTF-8")
+                + "&style=" + URLEncoder.encode(styleJson, "UTF-8")
+                + "&sessionId=" + URLEncoder.encode(sessionId, "UTF-8");
+
+        URL url = new URL(urlStr);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
         conn.setRequestProperty("Accept", "application/json");
 

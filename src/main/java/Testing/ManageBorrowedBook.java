@@ -245,7 +245,7 @@ public class ManageBorrowedBook extends Application {
 
             try (PreparedStatement ps = conn.prepareStatement(insert)) {
                 for (Book book : bookList) {
-                    ps.setString(1, book.getNim());
+                    ps.setString(1, book.getBookId());
                     ps.setString(2, book.getBookId());
                     ps.setString(3, book.getTitle());
                     ps.setString(4, book.getAuthor());

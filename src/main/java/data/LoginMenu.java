@@ -184,8 +184,14 @@ public class LoginMenu implements iMenu{
             System.out.println("DEBUG - PIC: " + password);
 
             if (Database.admin_loginCheck(username, password)) {
+                boolean isIT = username.startsWith("IT.");
+                if (isIT) {
+                    adminObj.menu_forAdmin();
+                }else{
+                    adminObj.menu();
+                }
 
-                adminObj.menu();
+
                 primaryStage.close();
             } else {
                 try {

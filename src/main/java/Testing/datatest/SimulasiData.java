@@ -1,6 +1,9 @@
 package Testing.datatest;
 
 import Features.Database;
+import Testing.JDBC.BotCP;
+import Testing.JDBC.HikaruCP;
+import Testing.JDBC.WriteManager;
 import Testing.ViewBorrowedBook;
 import books.Book;
 import com.zaxxer.hikari.HikariConfig;
@@ -30,6 +33,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 
 public class SimulasiData extends Application {
@@ -97,6 +101,9 @@ public class SimulasiData extends Application {
 
         private SimpleIntegerProperty stock;
 
+        public Book(){
+
+        }
         public Book(String nim, String bookId, String title, String author, String category, int duration, String expired) {
             this.nim = new SimpleStringProperty(nim);
             this.bookId = new SimpleStringProperty(bookId);
@@ -280,8 +287,8 @@ public class SimulasiData extends Application {
 
         primaryStage.show();
 
-        loadBooksFromDatabase();
-        simulateDataAddition(300, Duration.seconds(1),108000);
+        //loadBooksFromDatabase();
+        simulateDataAddition(300, Duration.seconds(1),109500);
         System.out.print("DEBUG - Ukuran ArrayList: " + addUser.size());
     }
 
@@ -350,23 +357,20 @@ public class SimulasiData extends Application {
             if (totalAdded >= maxTotal) {
                 System.out.println("Simulasi selesai: total data mencapai " + maxTotal);
 
-                Platform.runLater(() -> {
-                    Alert alert = new Alert(Alert.AlertType.INFORMATION, "Simulasi selesai: total data mencapai " + maxTotal);
-                    alert.show(); // NON-blocking version
-                });
-
                 //saveAllUsersToDatabase();
                 //saveAllBooksToDatabase();
-                //saveAllBorrowedBooksToDatabase();
+
                 //saveAllAdminToDatabase();
 
                 System.out.println("✅ Semua data simulasi berhasil disimpan ke database.");
                 ((Timeline) i.getSource()).stop();
                 return;
             }
+
             //addSimulatedUsers(jumlahData, maxTotal);
             //addSimulatedBooks(jumlahData, maxTotal);
             addSimulatedBorrowedBooks(jumlahData, maxTotal);
+
             //addSimulatedAdmin(jumlahData, maxTotal);
 
             System.out.println("✅ Tambahan data berjalan... Total: " + totalAdded);
@@ -380,10 +384,9 @@ public class SimulasiData extends Application {
     private void addSimulatedBorrowedBooks(int jumlahData, int maxTotal) {
         int startIndex = borrowedBook.size() + 1;
         try {
-
             for (int i = 0; i < jumlahData && totalAdded < maxTotal; i++) {
-                String nim = String.format("%015d", startIndex + i);
-                String bookId = "B" + String.format("%07d", startIndex + i);
+                String nim = String.format("9"+"%014d", startIndex + i);
+                String bookId = "C" + String.format("%015d", startIndex + i);
                 String title = "Buku Simulasi " + (startIndex + i);
                 String author = "Penulis Simulasi " + (startIndex + i);
                 String category = "Kategori Simulasi";
@@ -397,7 +400,7 @@ public class SimulasiData extends Application {
             }
             saveAllBorrowedBooksToDatabase();
         }catch (ClassCastException e){
-            System.out.println(" ");
+            System.err.println("XXXXXXXXXXXXXXXXXXXXXX");
         }
     }
 
@@ -453,6 +456,7 @@ public class SimulasiData extends Application {
                     book.getExpired()
             );
 
+
         }
         System.out.println("📖 Semua data pinjaman berhasil disimpan ke database.");
     }
@@ -460,8 +464,8 @@ public class SimulasiData extends Application {
     private void addSimulatedUsers(int jumlahData, int maxTotal) {
         int startIndex = addUser.size() + 1;
         for (int a = 0; a < jumlahData && totalAdded < maxTotal; a++) {
-            String nim = String.format("202310370311"+"%03d", startIndex + a);
-            String pic = "B" + (startIndex + a);
+            String nim = String.format("%015d", startIndex + a);
+            String pic = "C" + (startIndex + a);
             String name = "NF" + (startIndex + a);
             String faculty = "Teknik";
             String major = "Informatika";
@@ -502,31 +506,35 @@ public class SimulasiData extends Application {
         }
     }
 
+
     public static void admin_addBorrowedBook(String nim, String bookId, String title, String author, String category, int duration, String expired) {
-        String sql = "INSERT OR REPLACE INTO borrowed_books (nim, book_id, title, author, category, duration, expired_borrowedBook) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        WriteManager.writeAsBot(() -> {
+            String sql = "INSERT OR IGNORE INTO borrowed_books (nim, book_id, title, author, category, duration, expired_borrowedBook) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-        try (Connection conn = bookDataSource.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            try (Connection conn = HikaruCP.getConnection();  // GUNAKAN BOTCP
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, nim);
-            pstmt.setString(2, bookId);
-            pstmt.setString(3, title);
-            pstmt.setString(4, author);
-            pstmt.setString(5, category);
-            pstmt.setInt(6, duration);
-            pstmt.setString(7, expired);
+                pstmt.setString(1, nim);
+                pstmt.setString(2, bookId);
+                pstmt.setString(3, title);
+                pstmt.setString(4, author);
+                pstmt.setString(5, category);
+                pstmt.setInt(6, duration);
+                pstmt.setString(7, expired);
 
-            pstmt.executeUpdate();
-            System.out.println("✅ Data pinjaman buku berhasil ditambahkan: " + title);
+                pstmt.executeUpdate();
+                System.out.println("✅ Data pinjaman buku berhasil ditambahkan (Bot): " + title);
 
-        } catch (SQLException e) {
-            System.out.println(" ");
-        }
-        catch (ClassCastException e) {
-            System.out.println("done class cast");
-        }
+
+            } catch (SQLException e) {
+                System.out.println("❌ Error:admin_addBorrowedBook (BotCP)");
+                e.printStackTrace();
+            }
+
+        });
 
     }
+
 
     public static void main(String[] args) {
         launch(args);

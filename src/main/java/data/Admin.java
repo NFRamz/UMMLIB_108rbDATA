@@ -55,8 +55,7 @@ public class Admin extends User implements iMenu {
         Button manageBook        = new Button("kelola Buku");
         manageBook.getStylesheets().add("file:src/main/java/css/Login_button.css");
 
-        Button manageUser        = new Button("kelola pengguna");
-        manageUser.getStylesheets().add("file:src/main/java/css/Login_button.css");
+
         //========
 
         Button addBookButton        = new Button("Tambah Buku");
@@ -65,6 +64,8 @@ public class Admin extends User implements iMenu {
         Button viewBookButton        = new Button("Manage Buku");
         viewBookButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
 
+        Button manageUser = new Button("kelola pengguna");
+        manageUser.getStylesheets().add("file:src/main/java/css/Login_button.css");
 
         Button logoutButton         = new Button("Logout");
         logoutButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
@@ -78,7 +79,7 @@ public class Admin extends User implements iMenu {
         //Shape
         Rectangle backgroundShape = new Rectangle();
         backgroundShape.setWidth(300);
-        backgroundShape.setHeight(380);
+        backgroundShape.setHeight(430);
         backgroundShape.setArcWidth(50);
         backgroundShape.setArcHeight(50);
         backgroundShape.setTranslateX(0);
@@ -97,7 +98,7 @@ public class Admin extends User implements iMenu {
         grid.add(addBookButton, 0,4);
         grid.add(manageBook,0,5);
         grid.add(historyBorrowedBookButton, 0,6);
-        grid.add(logoutButton,0,7);
+        grid.add(logoutButton,0,8);
 
         grid.setVgap(20);
         grid.setHgap(5);
@@ -153,6 +154,11 @@ public class Admin extends User implements iMenu {
             adminMenuStage.close();
         });
 
+        manageUser.setOnAction(event -> {
+            ViewAdmin viewAdmin = new ViewAdmin();
+            viewAdmin.start(new Stage());
+        });
+
         logoutButton.setOnAction(event -> {
             Main mainobj = new Main();
             mainobj.start(new Stage());
@@ -160,7 +166,144 @@ public class Admin extends User implements iMenu {
         });
 
     }
+    public void menu_forAdmin(){
 
+
+        //Label
+        Label sceneTitle = new Label("Menu Admin");
+        sceneTitle.setTranslateX(40);
+        sceneTitle.setStyle("-fx-text-fill: #A91D3A;");
+        sceneTitle.setFont(Font.font("Tahoma", FontWeight.BOLD, 20));
+
+
+        //Button
+        Button addStudentButton     = new Button("Tambah Mahasiswa");
+        addStudentButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
+
+        Button displayStudentButton = new Button("Daftar Mahasiswa");
+        displayStudentButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
+
+        //new===
+        Button historyBorrowedBookButton = new Button("Lihat Peminjaman");
+        historyBorrowedBookButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
+
+        Button manageBook        = new Button("kelola Buku");
+        manageBook.getStylesheets().add("file:src/main/java/css/Login_button.css");
+
+
+        //========
+
+        Button addBookButton        = new Button("Tambah Buku");
+        addBookButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
+
+        Button viewBookButton        = new Button("Manage Buku");
+        viewBookButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
+
+        Button manageUser = new Button("kelola pengguna");
+        manageUser.getStylesheets().add("file:src/main/java/css/Login_button.css");
+
+        Button logoutButton         = new Button("Logout");
+        logoutButton.getStylesheets().add("file:src/main/java/css/Login_button.css");
+
+        //Image
+        Image backgroundImage = new Image("file:src/main/java/image/backgroundImage.png");
+        ImageView backgroundImageView = new ImageView(backgroundImage);
+        backgroundImageView.setFitWidth(1366);
+        backgroundImageView.setFitHeight(768);
+
+        //Shape
+        Rectangle backgroundShape = new Rectangle();
+        backgroundShape.setWidth(300);
+        backgroundShape.setHeight(430);
+        backgroundShape.setArcWidth(50);
+        backgroundShape.setArcHeight(50);
+        backgroundShape.setTranslateX(0);
+        backgroundShape.setTranslateY(15);
+        backgroundShape.setFill(Color.WHITE);
+
+
+        //Grid Layout
+        GridPane grid = new GridPane();
+        grid.setAlignment(Pos.CENTER);
+
+        grid.add(sceneTitle,0,1);
+
+        grid.add(addStudentButton, 0,2);
+        grid.add(displayStudentButton, 0,3);
+        grid.add(addBookButton, 0,4);
+        grid.add(manageBook,0,5);
+        grid.add(historyBorrowedBookButton, 0,6);
+        grid.add(manageUser,0,7);
+
+
+        grid.add(logoutButton,0,8);
+
+        grid.setVgap(20);
+        grid.setHgap(5);
+
+        //Overwrite elements
+        StackPane stackPane = new StackPane();
+        stackPane.getChildren().addAll(backgroundImageView, backgroundShape ,grid);
+
+        Scene scene = new Scene(stackPane);
+
+        //Create window
+        Stage adminMenuStage = new Stage();
+        adminMenuStage.setScene(scene);
+        adminMenuStage.setTitle("UMM Library - Admin Menu");
+        adminMenuStage.setFullScreen(true);
+        adminMenuStage.setFullScreenExitHint("");
+
+        adminMenuStage.show();
+
+
+        //Button Action
+        addStudentButton.setOnAction(event -> {
+            addstudent();
+            adminMenuStage.close();
+        });
+
+        displayStudentButton.setOnAction(event -> {
+            ViewStudent student = new ViewStudent();
+            student.start(new Stage());
+            adminMenuStage.close();
+        });
+
+        addBookButton.setOnAction(event -> {
+            inputBook();
+            adminMenuStage.close();
+        });
+
+        manageBook.setOnAction(event -> {
+            ViewBook viewBook = new ViewBook();
+            viewBook.start(new Stage());
+            adminMenuStage.close();
+        });
+
+        historyBorrowedBookButton.setOnAction(event -> {
+            ViewBorrowedBook viewBorrowedBook = new ViewBorrowedBook();
+            viewBorrowedBook.start(new Stage());
+            adminMenuStage.close();
+        });
+
+        manageUser.setOnAction(event -> {
+            ViewAdmin viewAdmin = new ViewAdmin();
+            viewAdmin.start(new Stage());
+            adminMenuStage.close();
+        });
+
+        manageUser.setOnAction(event -> {
+            ViewAdmin viewAdmin = new ViewAdmin();
+            viewAdmin.start(new Stage());
+        });
+
+        logoutButton.setOnAction(event -> {
+            Main mainobj = new Main();
+            mainobj.start(new Stage());
+            adminMenuStage.close();
+        });
+
+    }
 //===================================== Other Method =======================================
     public void addstudent() {
 

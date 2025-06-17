@@ -1,8 +1,5 @@
-package Testing;
-
+package Testing.Backup;
 import Features.Database;
-import Testing.JDBC.HikaruCP;
-import Testing.JDBC.WriteManager;
 import Testing.datatest.SimulasiData;
 import data.Admin;
 import javafx.animation.KeyFrame;
@@ -32,11 +29,9 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-//Arraylist untuk tabel tidak teruppdate
-//simpan perubahan masih bermasalah yaitu data buku yang dipinjam tidak mau terupdate
-
-//saat menghapus pinjaman via admin, stok buku tidak terupdate
-public class ViewBorrowedBook extends Application {
+//POSISI TABEL
+//KUrang tombol simpan data ke dataabase
+public class ViewBorrowedBook_Backup extends Application {
 
     public static class Book {
         private   SimpleStringProperty nim;
@@ -309,19 +304,15 @@ public class ViewBorrowedBook extends Application {
         Button btn_delete = new Button("Hapus");
         btn_delete.getStylesheets().add("file:src/main/java/css/Login_button.css");
         btn_delete.setOnAction(e -> {
-                    Book selectedBook = tableView.getSelectionModel().getSelectedItem();
-                    if (selectedBook != null) {
-                        if (selectedBook.getNim() != null && !selectedBook.getNim().isEmpty()) {
-                            deleteBookFromDatabase(selectedBook.getBookId(), selectedBook.getNim());
-                            borrowedBook.remove(selectedBook);
-                            tableView.refresh();
-                        } else {
-                            showAlert("Pilih Buku", "NIM tidak valid untuk buku yang dipilih.");
-                        }
-                    } else {
-                        showAlert("Pilih Buku", "Silakan pilih buku dari tabel untuk dihapus.");
-                    }
-                });
+            Book selectedBook = tableView.getSelectionModel().getSelectedItem();
+            if (selectedBook != null) {
+                deleteBookFromDatabase(selectedBook);
+                borrowedBook.remove(selectedBook);
+                tableView.refresh();
+            } else {
+                showAlert("Pilih Buku", "Silakan pilih buku dari tabel untuk dihapus.");
+            }
+        });
 
         //SUSUN INI DAI
         rootTable.setTranslateY(137);//200=makin kebawah, 100 = makin keatas
@@ -366,31 +357,28 @@ public class ViewBorrowedBook extends Application {
     private final String DB_URL = "jdbc:sqlite:src/main/java/.database/Book";
 
     // New method to delete a book from the database
-    private void deleteBookFromDatabase(String bookId, String nim) {
+    private void deleteBookFromDatabase(Book book) {
+        String url = "jdbc:sqlite:src/main/java/.database/Book";
+        String deleteSQL = "DELETE FROM borrowed_books WHERE book_id = ?";
 
-        String deleteSQL = "DELETE FROM borrowed_books WHERE book_id = ? AND nim = ?";
+        try (Connection conn = DriverManager.getConnection(url);
+             PreparedStatement pstmt = conn.prepareStatement(deleteSQL)) {
 
-        WriteManager.writeAsUser(()->{
-            try (Connection conn = HikaruCP.getConnection();
-                 PreparedStatement pstmt = conn.prepareStatement(deleteSQL)) {
+            pstmt.setString(1, book.getBookId());
+            int rowsAffected = pstmt.executeUpdate();
 
-                pstmt.setString(1, bookId);
-                pstmt.setString(2, nim);
-                int rowsAffected = pstmt.executeUpdate();
-
-                if (rowsAffected > 0) {
-                    System.out.println("✅ Buku dengan ID " + bookId + " dan NIM " + nim + " berhasil dihapus dari database.");
-
-                } else {
-                    System.out.println("❌ Tidak ada buku dengan ID " + bookId + " dan NIM " + nim + " ditemukan di database.");
-
-                }
-
-            } catch (SQLException e) {
-                e.printStackTrace();
-
+            if (rowsAffected > 0) {
+                System.out.println("✅ Buku dengan ID " + book.getBookId() + " berhasil dihapus dari database.");
+                showAlert("Berhasil", "Buku berhasil dihapus dari database.");
+            } else {
+                System.out.println("❌ Tidak ada buku dengan ID " + book.getBookId() + " ditemukan di database.");
+                showAlert("Gagal", "Buku tidak ditemukan di database.");
             }
-        });
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            showAlert("Gagal Menghapus Data", "Gagal menghapus buku: " + e.getMessage());
+        }
     }
 
     public void saveBorrowedBooks(List<Book> borrowedBooks) {
@@ -399,7 +387,7 @@ public class ViewBorrowedBook extends Application {
         try (Connection conn = DriverManager.getConnection(DB_URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            for (ViewBorrowedBook.Book book : borrowedBooks) {
+            for (Book book : borrowedBooks) {
                 pstmt.setString(1, book.getNim());
                 pstmt.setString(2, book.getBookId());
                 pstmt.setString(3, book.getTitle());
@@ -458,14 +446,13 @@ public class ViewBorrowedBook extends Application {
         }
     }
 
-private void saveBooksToDatabase() {
+    private void saveBooksToDatabase() {
+        String url = "jdbc:sqlite:src/main/java/.database/Book";
         String insertSQL = "INSERT OR REPLACE INTO borrowed_books (nim, book_id, title, author, category, duration, expired_borrowedBook) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-    WriteManager.writeAsUser(() -> {
-        try (Connection conn = HikaruCP.getConnection();
+        try (Connection conn = DriverManager.getConnection(url);
              PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
 
-            conn.setAutoCommit(false);
             for (Book book : borrowedBook) {
                 pstmt.setString(1, book.getNim());
                 pstmt.setString(2, book.getBookId());
@@ -474,21 +461,17 @@ private void saveBooksToDatabase() {
                 pstmt.setString(5, book.getCategory());
                 pstmt.setInt(6, book.getDuration());
                 pstmt.setString(7, book.getExpired());
-                pstmt.addBatch();
+                pstmt.addBatch(); // Tambahkan ke batch
             }
 
-            pstmt.executeBatch();
-            conn.commit();
+            pstmt.executeBatch(); // Jalankan semua sekaligus
             System.out.println("✅ Semua data berhasil disimpan ke database.");
 
         } catch (SQLException e) {
             e.printStackTrace();
-            javafx.application.Platform.runLater(() -> {
-                Alert alert = new Alert(Alert.AlertType.ERROR, "Gagal menyimpan data: " + e.getMessage());
-                alert.showAndWait();
-            });
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Gagal menyimpan data: " + e.getMessage());
+            alert.showAndWait();
         }
-    });
     }
 
     private void saveToDatabase() {
@@ -525,7 +508,7 @@ private void saveBooksToDatabase() {
 
     // Tambahkan tombol "Update" → load ulang dari database
     public static List<Book> updateBorrowedBooks() {
-        List<ViewBorrowedBook.Book> bookList = new ArrayList<>();
+        List<Book> bookList = new ArrayList<>();
         String sql = "SELECT * FROM borrowed_books";
 
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:src/main/java/.database/Book");
@@ -541,7 +524,7 @@ private void saveBooksToDatabase() {
                 int duration = rs.getInt("duration");
                 String expired = rs.getString("expired_borrowedBook");
 
-                Book book = new ViewBorrowedBook.Book(nim, bookId, title, author, category, duration, expired);
+                Book book = new Book(nim, bookId, title, author, category, duration, expired);
                 bookList.add(book);
             }
 
@@ -563,3 +546,4 @@ private void saveBooksToDatabase() {
         launch(args);
     }
 }
+

@@ -1,6 +1,8 @@
 package Testing;
 
+import Testing.JDBC.HikaruCP_forAdmin;
 import data.Admin;
+import data.LoginMenu;
 import javafx.application.Application;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -24,10 +26,13 @@ public class ViewAdmin extends Application {
     public static class Admin {
         private final SimpleStringProperty username;
         private final SimpleStringProperty password;
+        private String originalUsername; // untuk tracking update
+
 
         public Admin(String username, String password) {
             this.username = new SimpleStringProperty(username);
             this.password = new SimpleStringProperty(password);
+            this.originalUsername = username; // simpan nilai awal
         }
 
         public String getUsername() { return username.get(); }
@@ -38,6 +43,13 @@ public class ViewAdmin extends Application {
 
         public SimpleStringProperty usernameProperty() { return username; }
         public SimpleStringProperty passwordProperty() { return password; }
+
+        public String getOriginalUsername() { return originalUsername; }
+        public void setOriginalUsername(String originalUsername) { this.originalUsername = originalUsername; }
+
+
+
+
     }
 
     private final ObservableList<Admin> adminList = FXCollections.observableArrayList();
@@ -63,31 +75,40 @@ public class ViewAdmin extends Application {
         }
     }
 
-    private void saveAdminsToDatabase() {
-        String sql = "UPDATE admin_credentials SET password = ? WHERE username = ?";
+    private void saveSelectedAdminToDatabase(Admin admin) {
+        String sql = "UPDATE admin_credentials SET username = ?, password = ? WHERE username = ?";
 
-        try (Connection conn = DriverManager.getConnection(dbUrl);
+        try (Connection conn = HikaruCP_forAdmin.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            for (Admin admin : adminList) {
-                pstmt.setString(1, admin.getPassword());
-                pstmt.setString(2, admin.getUsername());
-                pstmt.executeUpdate();
-            }
-            System.out.println("Data admins berhasil disimpan ke database.");
+            pstmt.setString(1, admin.getUsername());           // new username
+            pstmt.setString(2, admin.getPassword());           // new password
+            pstmt.setString(3, admin.getOriginalUsername());   // WHERE original username
+            int rows = pstmt.executeUpdate();
 
-        } catch (SQLException e) {
-            e.printStackTrace();
+            if (rows > 0) {
+                admin.setUsername(admin.getUsername()); // update old reference
+                admin.setPassword(admin.getPassword()); // update old reference
+                System.out.println("Admin berhasil diperbarui di database.");
+            } else {
+                System.out.println("Tidak ada baris yang diperbarui. Mungkin username lama tidak ditemukan.");
+            }
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
         }
     }
+
 
     @Override
     public void start(Stage primaryStage) {
         // Load data from database
         loadAdminsFromDatabase();
 
+
+
         // Background
-        Image backgroundImage = new Image("file:src/main/java/image/Manage_bukuTerpinjam.png");
+        Image backgroundImage = new Image("file:src/main/java/image/manage_staff.png");
         ImageView backgroundImageView = new ImageView(backgroundImage);
         backgroundImageView.setFitHeight(768);
         backgroundImageView.setFitWidth(1366);
@@ -117,6 +138,8 @@ public class ViewAdmin extends Application {
         // Table Columns
         TableColumn<Admin, String> usernameCol = new TableColumn<>("Username");
         usernameCol.setCellValueFactory(cell -> cell.getValue().usernameProperty());
+        usernameCol.setCellFactory(TextFieldTableCell.forTableColumn());
+        usernameCol.setOnEditCommit(e -> e.getRowValue().setUsername(e.getNewValue()));
         usernameCol.setPrefWidth(639); // Half of 1278
 
         TableColumn<Admin, String> passwordCol = new TableColumn<>("Password");
@@ -146,8 +169,16 @@ public class ViewAdmin extends Application {
         Button btn_update = new Button("Simpan Perubahan");
         btn_update.getStylesheets().add("file:src/main/java/css/Login_button.css");
         btn_update.setOnAction(e -> {
-            saveAdminsToDatabase();
+            Admin selectedAdmin = tableView.getSelectionModel().getSelectedItem();
+            if (selectedAdmin != null) {
+                saveSelectedAdminToDatabase(selectedAdmin);
+                tableView.refresh();
+            } else {
+                Alert alert = new Alert(Alert.AlertType.WARNING, "Pilih baris yang ingin disimpan terlebih dahulu.");
+                alert.showAndWait();
+            }
         });
+
 
         // Search Logic
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
@@ -173,11 +204,11 @@ public class ViewAdmin extends Application {
         rootTable.setTranslateX(46);
         rootTable.setPadding(new Insets(0));
         // Tombol untuk membuka chatbot
-        Button openChatbotButton = new Button("💬 Ask?");
+        Button openChatbotButton = new Button(" ");
         openChatbotButton.setStyle(
                 "-fx-font-size: 16px;" +
                         "-fx-padding: 8 12;" +
-                        "-fx-background-color: linear-gradient(to right, #ffffff, #ffffff);" +
+                        "-fx-background-color: linear-gradient(to right, #a02521, #a02521);" +
                         "-fx-text-fill: black;" +
                         "-fx-background-radius: 30;" +
                         "-fx-cursor: hand;"
@@ -206,7 +237,7 @@ public class ViewAdmin extends Application {
 
         // Scene setup
         StackPane stackPane = new StackPane();
-        stackPane.getChildren().addAll(backgroundImageView, searchBoxContainer, rootTable, rootBtn,chatBot);
+        stackPane.getChildren().addAll(backgroundImageView,chatBot, searchBoxContainer,rootTable, rootBtn);
 
         Scene scene = new Scene(stackPane);
         primaryStage.setScene(scene);

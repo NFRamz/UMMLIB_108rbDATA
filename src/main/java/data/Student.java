@@ -3,6 +3,8 @@ package data;
 
 import Features.Database;
 import Features.DoubleClick_table;
+import Testing.JDBC.SessionManager;
+import Testing.JDBC.WriteManager;
 import books.Book;
 
 import Main.Main;
@@ -101,21 +103,13 @@ public class Student extends User implements iMenu {
 
         TableColumn<Book, String> titleColumn = new TableColumn<>("Nama Buku");
         titleColumn.setCellValueFactory(new PropertyValueFactory<>("title"));
-        titleColumn.setMaxWidth(500);
+        titleColumn.setMaxWidth(180);
 
-        TableColumn<Book, String> authorColumn = new TableColumn<>("Penulis");
-        authorColumn.setCellValueFactory(new PropertyValueFactory<>("author"));
-
-        TableColumn<Book, String> categoryColumn = new TableColumn<>("Kategori");
-        categoryColumn.setCellValueFactory(new PropertyValueFactory<>("category"));
-
-        TableColumn<Book, Integer> durationColumn = new TableColumn<>("Durasi");
-        durationColumn.setCellValueFactory(new PropertyValueFactory<>("duration"));
+        TableColumn<Book, Integer> durationColumn = new TableColumn<>("Pengembalian");
+        durationColumn.setCellValueFactory(new PropertyValueFactory<>("expired_borrowedBook"));
 
         table.getColumns().add(idColumn);
         table.getColumns().add(titleColumn);
-        table.getColumns().add(authorColumn);
-        table.getColumns().add(categoryColumn);
         table.getColumns().add(durationColumn);
 
         for (Book i : Book.arr_borrowedBook) {
@@ -228,8 +222,6 @@ public class Student extends User implements iMenu {
                     System.out.println("Stok buku terupdate.");
 
                     System.out.println("Membersihkan data ArrayList...");
-                    Book.arr_borrowedBook.clear();
-                    Book.arr_bookList.clear();
                     System.out.println("ArrayList dibersihkan.");
 
                     return null;
@@ -237,7 +229,15 @@ public class Student extends User implements iMenu {
             };
 
             backgroundLogoutTask.setOnSucceeded(e -> {
-                System.out.println("Proses backend logout selesai.");
+
+                WriteManager.flushAndRun(() -> {
+                    System.out.println("✅ Semua write selesai, membersihkan list...");
+                    Book.arr_borrowedBook.clear();
+                    Book.arr_bookList.clear();
+                    SessionManager .resetSession();
+                    System.out.println("Proses backend logout selesai.");
+                });
+
             });
 
             backgroundLogoutTask.setOnFailed(e -> {
@@ -247,6 +247,7 @@ public class Student extends User implements iMenu {
             Thread backgroundThread = new Thread(backgroundLogoutTask);
             backgroundThread.setDaemon(true);
             backgroundThread.start();
+
         });
 
 
